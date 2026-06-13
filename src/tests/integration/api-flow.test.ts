@@ -1,23 +1,21 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { isDbAvailable } from "@/tests/helpers/db-available";
 
 /**
- * Phase 5 verification:
+ * Full API verification:
  *  - every API route responds correctly to VALID input (+ right status),
  *  - every API route returns a clean 400 on INVALID input (no crash),
  *  - the FULL backend journey runs through the API alone:
  *    return → grade → route → price → list → match → credits → prevention.
  *
- * The grader's Transformers.js dependency is mocked so grading is fast/offline.
+ * The local grader runs sharp on a real (tiny) PNG — no network, no mocks.
  * Requires the docker stack (DB + Redis) running.
  */
 
-// Mock the offline classifier so /api/grade never downloads a model.
-vi.mock("@xenova/transformers", () => ({
-  pipeline: async () => async () => [{ label: "tablet", score: 0.92 }],
-  RawImage: { fromBlob: async () => ({}) },
-}));
+// A real 1x1 PNG so the sharp-based local grader can actually decode it.
+const TINY_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 // Helpers to call route handlers directly.
 function jsonReq(url: string, body: unknown): Request {
@@ -48,6 +46,11 @@ describe("phase 5 — full API layer", () => {
     await prisma.gradeResult.deleteMany({ where: { itemId: ITEM_ID } });
     await prisma.return.deleteMany({ where: { itemId: ITEM_ID } });
     await prisma.item.update({ where: { id: ITEM_ID }, data: { status: "GRADED" } });
+    // Ensure the item has a fresh, returnable order (within the window).
+    await prisma.order.updateMany({
+      where: { itemId: ITEM_ID },
+      data: { status: "DELIVERED", deliveredAt: new Date() },
+    });
   });
 
   it("rejects invalid input with a clean 400 (every route)", async () => {
@@ -106,7 +109,7 @@ describe("phase 5 — full API layer", () => {
     const gradeRes = await gradePOST(
       jsonReq("http://t/api/grade", {
         itemId: ITEM_ID,
-        images: [{ base64: "QUJD", mimeType: "image/jpeg" }],
+        images: [{ base64: TINY_PNG, mimeType: "image/png" }],
       }),
     );
     expect(gradeRes.status).toBe(200);

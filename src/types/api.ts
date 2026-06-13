@@ -69,6 +69,12 @@ export const PreventionQuerySchema = z.object({
   profile: z.string().optional(),
 });
 
+export const RedeemRequestSchema = z.object({
+  rewardId: z.string().min(1),
+  userId: z.string().optional(),
+});
+export type RedeemRequest = z.infer<typeof RedeemRequestSchema>;
+
 export const CreditsRequestSchema = z.object({
   action: RoutingPathSchema,
   category: z.string().min(1),

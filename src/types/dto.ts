@@ -91,6 +91,44 @@ export interface CreditTotalsDTO {
   totalCo2SavedKg: number;
   totalCostSaved: number;
   count: number;
+  totalRedeemed: number;
+  availableBalance: number;
+}
+
+export interface RewardDTO {
+  id: string;
+  label: string;
+  description: string;
+  cost: number;
+  icon: string;
+  kind: "voucher" | "perk" | "donation";
+}
+
+export interface RedeemResultDTO {
+  redemption: {
+    id: string;
+    rewardId: string;
+    rewardLabel: string;
+    cost: number;
+    createdAt: string;
+  };
+  totals: CreditTotalsDTO;
+}
+
+export interface EligibleOrderDTO {
+  order: {
+    id: string;
+    itemId: string;
+    userId: string;
+    orderedAt: string;
+    deliveredAt: string;
+    status: string;
+    item: ItemDTO;
+  };
+  returnEligible: boolean;
+  returnDaysLeft: number;
+  returnWindowDays: number;
+  reasonIfNot?: string;
 }
 
 export interface CreditsResultDTO {

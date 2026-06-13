@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // @xenova/transformers ships native/onnx bits that must stay external on the server.
+  // sharp ships native bindings that must stay external on the server.
   experimental: {
-    serverComponentsExternalPackages: ["@xenova/transformers"],
+    serverComponentsExternalPackages: ["sharp"],
   },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],

@@ -2,13 +2,16 @@ import type {
   BuyerMatchDTO,
   CreditTotalsDTO,
   CreditsResultDTO,
+  EligibleOrderDTO,
   GradeResultDTO,
   ItemDTO,
   ListingDTO,
   MatchResultDTO,
   PreventionResultDTO,
   PriceResultDTO,
+  RedeemResultDTO,
   ReturnDTO,
+  RewardDTO,
   RoutingResultDTO,
 } from "@/types/dto";
 import type { Grade, RoutingPath, DetectedFlaw } from "@/types";
@@ -95,6 +98,19 @@ export const apiClient = {
   health: () => request<{ status: string; db: string }>("/api/health"),
 
   getItems: () => request<ItemDTO[]>("/api/items"),
+
+  getOrders: (userId?: string) =>
+    request<EligibleOrderDTO[]>(
+      `/api/orders${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
+    ),
+
+  getRewards: () => request<RewardDTO[]>("/api/rewards"),
+
+  redeem: (rewardId: string, userId?: string) =>
+    request<RedeemResultDTO>("/api/credits/redeem", {
+      method: "POST",
+      body: JSON.stringify({ rewardId, userId }),
+    }),
 
   createReturn: (input: { itemId: string; reason: string; photos?: string[] }) =>
     request<ReturnDTO>("/api/returns", {

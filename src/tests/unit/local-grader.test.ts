@@ -1,42 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { createLocalGrader } from "@/services/grading/local-grader";
+import { createLocalGrader, type ImageSignals } from "@/services/grading/local-grader";
 import { GraderOutputSchema } from "@/services/grading/image-grader.interface";
 import type { ImageInput } from "@/types";
 
 const img: ImageInput = { base64: "QUJD", mimeType: "image/jpeg" };
 
-describe("local-grader", () => {
-  it("maps high classifier confidence to grade A with no flaws", async () => {
-    const grader = createLocalGrader({
-      classify: async () => [{ label: "sneaker", score: 0.95 }],
-    });
+function signals(score: number): ImageSignals {
+  return { score, sharpness: 6, brightness: 135, contrast: 50, entropy: 7 };
+}
+
+describe("local-grader (image-signal driven)", () => {
+  it("high condition score → grade A with no flaws", async () => {
+    const grader = createLocalGrader({ analyze: async () => signals(0.95) });
     const out = await grader.grade([img]);
     expect(GraderOutputSchema.safeParse(out).success).toBe(true);
     expect(out.grade).toBe("A");
     expect(out.flaws).toHaveLength(0);
-    expect(out.confidence).toBeCloseTo(0.95, 2);
   });
 
-  it("maps low classifier confidence to grade D with a severe flaw", async () => {
+  it("low condition score → grade D with severe flaws", async () => {
     const grader = createLocalGrader({
-      classify: async () => [{ label: "shoe", score: 0.2 }],
+      analyze: async () => ({ score: 0.2, sharpness: 1, brightness: 50, contrast: 20, entropy: 3 }),
     });
     const out = await grader.grade([img]);
     expect(out.grade).toBe("D");
+    expect(out.flaws.length).toBeGreaterThan(0);
     expect(out.flaws[0]?.severity).toBe("severe");
   });
 
-  it("returns the correct contract shape (gradedBy name = local)", async () => {
+  it("uses the worst image across multiple photos", async () => {
+    let i = 0;
     const grader = createLocalGrader({
-      classify: async () => [{ label: "x", score: 0.7 }],
+      analyze: async () => (i++ === 0 ? signals(0.9) : signals(0.3)),
     });
-    expect(grader.name).toBe("local");
-    const out = await grader.grade([img]);
-    expect(out.grade).toBe("B");
+    const out = await grader.grade([img, img]);
+    expect(out.grade).not.toBe("A"); // worst (0.3) wins
   });
 
-  it("rejects empty image input", async () => {
-    const grader = createLocalGrader({ classify: async () => [] });
+  it("reports name = local and rejects empty input", async () => {
+    const grader = createLocalGrader({ analyze: async () => signals(0.7) });
+    expect(grader.name).toBe("local");
     await expect(grader.grade([])).rejects.toThrow();
   });
 });

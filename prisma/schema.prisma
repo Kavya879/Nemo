@@ -52,6 +52,14 @@ enum GradedBy {
   local
 }
 
+enum OrderStatus {
+  PLACED
+  SHIPPED
+  DELIVERED
+  RETURN_REQUESTED
+  RETURNED
+}
+
 // ── Core models ─────────────────────────────────────────────────────────────
 
 /// The physical product moving through the system.
@@ -74,9 +82,26 @@ model Item {
   routingDecisions RoutingDecision[]
   listing          Listing?
   greenCredits     GreenCredit[]
+  orders           Order[]
 
   @@index([category])
   @@index([status])
+}
+
+/// A customer's purchase of an item — what makes a return possible, and only
+/// within the configured return window after delivery.
+model Order {
+  id         String      @id @default(cuid())
+  userId     String      @default("demo-user")
+  itemId     String
+  item       Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  orderedAt  DateTime
+  deliveredAt DateTime
+  status     OrderStatus @default(DELIVERED)
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+  @@index([itemId])
 }
 
 /// A return event that brings an item back into the loop.
@@ -210,5 +235,21 @@ model RoutingConfig {
   /// Base confidence for prevention guidance (0..1).
   preventionBaseConfidence Float @default(0.7)
 
+  // ── Returns ──
+  /// Days after delivery during which an order is still returnable.
+  returnWindowDays Int @default(30)
+
   updatedAt DateTime @updatedAt
+}
+
+/// A redemption of green credits for a reward (negative side of the ledger).
+model RewardRedemption {
+  id          String   @id @default(cuid())
+  userId      String   @default("demo-user")
+  rewardId    String
+  rewardLabel String
+  cost        Int
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }

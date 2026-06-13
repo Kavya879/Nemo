@@ -1,6 +1,8 @@
-import type { GreenCredit, RoutingConfig } from "@prisma/client";
+import type { GreenCredit, RewardRedemption, RoutingConfig } from "@prisma/client";
 import { configRepository } from "@/repositories/config.repository";
 import { creditRepository, type CreditTotals } from "@/repositories/credit.repository";
+import { REWARDS } from "@/config/constants";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import type { RoutingPath } from "@/types";
 
 /**
@@ -72,6 +74,31 @@ export function createCreditsService() {
 
     async totals(userId = "demo-user"): Promise<CreditTotals> {
       return creditRepository.totalsForUser(userId);
+    },
+
+    /** Redeem a reward, deducting its credit cost (fails if balance is short). */
+    async redeem(
+      rewardId: string,
+      userId = "demo-user",
+    ): Promise<{ redemption: RewardRedemption; totals: CreditTotals }> {
+      const reward = REWARDS.find((r) => r.id === rewardId);
+      if (!reward) throw new NotFoundError(`Unknown reward "${rewardId}".`);
+
+      const totals = await creditRepository.totalsForUser(userId);
+      if (totals.availableBalance < reward.cost) {
+        throw new ConflictError(
+          `Not enough credits: need ${reward.cost}, have ${totals.availableBalance}.`,
+        );
+      }
+
+      const redemption = await creditRepository.createRedemption({
+        userId,
+        rewardId: reward.id,
+        rewardLabel: reward.label,
+        cost: reward.cost,
+      });
+      const updated = await creditRepository.totalsForUser(userId);
+      return { redemption, totals: updated };
     },
   };
 }

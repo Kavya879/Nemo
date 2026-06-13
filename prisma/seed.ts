@@ -64,6 +64,7 @@ async function seedConfig() {
       co2DefaultKg: 2.5,
       costSavedFactor: 0.6,
       preventionBaseConfidence: 0.7,
+      returnWindowDays: 30,
     },
     create: {
       id: "default",
@@ -79,6 +80,7 @@ async function seedConfig() {
       co2DefaultKg: 2.5,
       costSavedFactor: 0.6,
       preventionBaseConfidence: 0.7,
+      returnWindowDays: 30,
     },
   });
 
@@ -174,6 +176,40 @@ async function seedReturns() {
   console.info(`✔ ${returns.length} demo returns seeded`);
 }
 
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+async function seedOrders() {
+  // Mix of returnable (within 30-day window) and expired orders.
+  const orders: Array<{ id: string; itemId: string; deliveredDaysAgo: number }> = [
+    { id: "demo-order-sneakers", itemId: "demo-item-sneakers", deliveredDaysAgo: 5 },
+    { id: "demo-order-headphones", itemId: "demo-item-headphones", deliveredDaysAgo: 12 },
+    { id: "demo-order-blender", itemId: "demo-item-blender", deliveredDaysAgo: 2 },
+    { id: "demo-order-jacket", itemId: "demo-item-jacket", deliveredDaysAgo: 45 }, // EXPIRED
+    { id: "demo-order-tablet", itemId: "demo-item-tablet", deliveredDaysAgo: 60 }, // EXPIRED
+  ];
+
+  for (const o of orders) {
+    const deliveredAt = daysAgo(o.deliveredDaysAgo);
+    await prisma.order.upsert({
+      where: { id: o.id },
+      update: { deliveredAt, orderedAt: daysAgo(o.deliveredDaysAgo + 3) },
+      create: {
+        id: o.id,
+        itemId: o.itemId,
+        userId: "demo-user",
+        orderedAt: daysAgo(o.deliveredDaysAgo + 3),
+        deliveredAt,
+        status: "DELIVERED",
+      },
+    });
+  }
+  console.info(`✔ ${orders.length} demo orders seeded (3 returnable, 2 expired)`);
+}
+
 /** Offsets ~1km per 0.009° lat near the equator; good enough for demo distances. */
 function offset(km: number, bearing: "n" | "e") {
   const degPerKm = 0.009;
@@ -258,6 +294,7 @@ async function main() {
   console.info("Seeding ReLoop database…");
   await seedConfig();
   await seedItems();
+  await seedOrders();
   await seedReturns();
   await seedBuyers();
   await seedListing();
