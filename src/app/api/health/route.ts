@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { systemRepository } from "@/repositories/system.repository";
 import { ok, fail } from "@/lib/api-response";
 import { UpstreamError } from "@/lib/errors";
 
@@ -12,8 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    // Cheapest possible round-trip that proves the connection works.
-    await prisma.$queryRaw`SELECT 1`;
+    await systemRepository.ping();
     return ok({ status: "ok", db: "connected" });
   } catch (error) {
     return fail(
