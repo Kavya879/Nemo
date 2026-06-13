@@ -1,0 +1,53 @@
+# Local development/verification stack.
+#
+# Brings up Postgres + Redis + an Upstash-REST-compatible proxy (SRH) so the
+# exact production code paths (@prisma/client over Postgres, @upstash/redis over
+# REST) run identically on your machine. For the deployed demo you instead point
+# the env vars at Neon + Upstash — no code changes.
+#
+#   docker compose up -d
+#   # then in .env:
+#   DATABASE_URL=postgresql://reloop:reloop@localhost:55432/reloop?sslmode=disable
+#   UPSTASH_REDIS_REST_URL=http://localhost:8079
+#   UPSTASH_REDIS_REST_TOKEN=local_dev_token
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reloop
+      POSTGRES_PASSWORD: reloop
+      POSTGRES_DB: reloop
+    ports:
+      # Host 5433 → container 5432 (host 5432 may already be taken by a local PG).
+      - "55432:5432"
+    volumes:
+      - reloop_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reloop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  # Upstash-compatible REST proxy in front of Redis, so @upstash/redis works locally.
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:latest
+    restart: unless-stopped
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: local_dev_token
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+    ports:
+      - "8079:80"
+    depends_on:
+      - redis
+
+volumes:
+  reloop_pgdata:

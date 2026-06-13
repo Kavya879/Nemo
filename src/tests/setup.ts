@@ -7,10 +7,12 @@
  */
 const procEnv = process.env as Record<string, string | undefined>;
 procEnv.NODE_ENV = "test";
+// Default to the local docker-compose stack so integration tests run against a
+// real DB/Redis. Override via real env vars (e.g. CI) to point elsewhere.
 process.env.DATABASE_URL ??=
-  "postgresql://test:test@localhost:5432/reloop_test?sslmode=disable";
-process.env.UPSTASH_REDIS_REST_URL ??= "https://test.upstash.io";
-process.env.UPSTASH_REDIS_REST_TOKEN ??= "test-token";
+  "postgresql://reloop:reloop@localhost:55432/reloop?sslmode=disable";
+process.env.UPSTASH_REDIS_REST_URL ??= "http://localhost:8079";
+process.env.UPSTASH_REDIS_REST_TOKEN ??= "local_dev_token";
 process.env.GRADER_PROVIDER ??= "local";
 process.env.AWS_REGION ??= "us-east-1";
 process.env.BEDROCK_MODEL_ID ??= "anthropic.claude-3-5-sonnet-20240620-v1:0";
