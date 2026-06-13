@@ -1,0 +1,214 @@
+// ReLoop database schema — source of truth for all persisted data.
+//
+// Business rules (thresholds, radii, price bands, CO₂ factors, credit rates)
+// live in the RoutingConfig table, NOT in code — that is what makes the
+// "nothing hardcoded" principle real and lets behavior change live.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────────────────
+
+enum Grade {
+  A
+  B
+  C
+  D
+}
+
+enum RoutingPath {
+  RESELL_AS_IS
+  REFURBISH
+  PEER_TO_PEER
+  DONATE
+  RECYCLE
+}
+
+enum ItemStatus {
+  RETURNED
+  GRADED
+  ROUTED
+  LISTED
+  SOLD
+  DONATED
+  RECYCLED
+}
+
+enum ListingStatus {
+  ACTIVE
+  RESERVED
+  SOLD
+  INACTIVE
+}
+
+enum GradedBy {
+  bedrock
+  local
+}
+
+// ── Core models ─────────────────────────────────────────────────────────────
+
+/// The physical product moving through the system.
+model Item {
+  id            String      @id @default(cuid())
+  name          String
+  category      String
+  brand         String?
+  originalPrice Float
+  currentGrade  Grade?
+  status        ItemStatus  @default(RETURNED)
+  /// Append-only ownership trail, e.g. [{ owner, from, to }].
+  ownerHistory  Json        @default("[]")
+  repairability Float       @default(0.5) // 0..1, how repairable this item is
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  returns          Return[]
+  gradeResults     GradeResult[]
+  routingDecisions RoutingDecision[]
+  listing          Listing?
+  greenCredits     GreenCredit[]
+
+  @@index([category])
+  @@index([status])
+}
+
+/// A return event that brings an item back into the loop.
+model Return {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  reason    String
+  /// Photo references (urls or data refs) captured at return time.
+  photos    String[]
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+}
+
+/// The AI condition grade produced for an item.
+model GradeResult {
+  id         String   @id @default(cuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  grade      Grade
+  confidence Float
+  /// [{ type, severity, location }]
+  flaws      Json     @default("[]")
+  summary    String
+  gradedBy   GradedBy
+  tookMs     Int
+  createdAt  DateTime @default(now())
+
+  @@index([itemId])
+}
+
+/// The chosen second-life path plus the reasoning + inputs that produced it.
+model RoutingDecision {
+  id        String      @id @default(cuid())
+  itemId    String
+  item      Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  path      RoutingPath
+  reasoning String
+  score     Float
+  /// Snapshot of the inputs used (grade, costs, demand, …) for auditability.
+  inputs    Json
+  createdAt DateTime    @default(now())
+
+  @@index([itemId])
+}
+
+/// A second-life listing in the marketplace.
+model Listing {
+  id          String        @id @default(cuid())
+  itemId      String        @unique
+  item        Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  price       Float
+  /// Percentage of original price (for display/explanation).
+  pricePct    Float
+  photoUrl    String?
+  status      ListingStatus @default(ACTIVE)
+  /// Product Health Card: verified condition, history, warranty, flaws.
+  healthCard  Json
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+}
+
+/// A verified buyer with a location and a wishlist of wanted categories.
+model Buyer {
+  id        String   @id @default(cuid())
+  name      String
+  lat       Float
+  lng       Float
+  /// Categories the buyer wants (drives nearby matching).
+  wishlist  String[]
+  verified  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+/// Green credits earned + CO₂ and cost saved for a second-life action.
+model GreenCredit {
+  id         String      @id @default(cuid())
+  userId     String      @default("demo-user")
+  itemId     String?
+  item       Item?       @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  action     RoutingPath
+  credits    Int
+  co2SavedKg Float
+  costSaved  Float
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+}
+
+/// THE RULES TABLE. Single global row (id = "default"). Every business
+/// threshold, rate, radius, band, and factor lives here so it can be changed
+/// at runtime without touching code.
+model RoutingConfig {
+  id String @id @default("default")
+
+  // ── Matching ──
+  matchRadiusKm Float @default(5)
+
+  // ── Routing thresholds ──
+  /// Minimum nearby interested buyers for the peer-to-peer path to win.
+  peerToPeerMinBuyers Int   @default(1)
+  /// Repairability (0..1) at/above which REFURBISH is viable.
+  repairabilityThreshold Float @default(0.5)
+  /// Default route per grade, e.g. { "A": "RESELL_AS_IS", "D": "RECYCLE" }.
+  gradeDefaultRoutes Json
+  /// Grades considered "still working/usable" (eligible for donate/p2p).
+  workingGrades Json @default("[\"A\",\"B\",\"C\"]")
+
+  // ── Pricing ──
+  /// Price bands as % of original per grade: { "A": { "min": 0.8, "max": 0.9 }, … }.
+  priceBands Json
+  /// Multiplier applied when local demand is high (scarcity premium).
+  demandPriceMultiplier Float @default(1.05)
+
+  // ── Credits & impact ──
+  /// Credits awarded per path, e.g. { "PEER_TO_PEER": 50, "RECYCLE": 10 }.
+  creditsPerAction Json
+  /// kg CO₂ saved per category for a second-life action.
+  co2FactorsByCategory Json
+  /// Default kg CO₂ saved when category not in the map above.
+  co2DefaultKg Float @default(2.5)
+  /// Fraction of original price treated as cost saved by reuse.
+  costSavedFactor Float @default(0.6)
+
+  // ── Prevention ──
+  /// Base confidence for prevention guidance (0..1).
+  preventionBaseConfidence Float @default(0.7)
+
+  updatedAt DateTime @updatedAt
+}
