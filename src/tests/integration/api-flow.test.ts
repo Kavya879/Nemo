@@ -16,6 +16,7 @@ import { isDbAvailable } from "@/tests/helpers/db-available";
 // Mock the offline classifier so /api/grade never downloads a model.
 vi.mock("@xenova/transformers", () => ({
   pipeline: async () => async () => [{ label: "tablet", score: 0.92 }],
+  RawImage: { fromBlob: async () => ({}) },
 }));
 
 // Helpers to call route handlers directly.

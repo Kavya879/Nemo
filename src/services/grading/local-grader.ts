@@ -22,7 +22,7 @@ export interface Classification {
   label: string;
   score: number;
 }
-export type ClassifyFn = (dataUrl: string) => Promise<Classification[]>;
+export type ClassifyFn = (image: ImageInput) => Promise<Classification[]>;
 
 /** Maps a top-1 confidence to a grade via config-driven cutoffs. */
 function confidenceToGrade(score: number): Grade {
@@ -36,18 +36,22 @@ function confidenceToGrade(score: number): Grade {
 function createTransformersClassifier(): ClassifyFn {
   let pipelinePromise: Promise<unknown> | null = null;
 
-  return async (dataUrl: string): Promise<Classification[]> => {
+  return async (image: ImageInput): Promise<Classification[]> => {
+    // Transformers.js in Node can't read a `data:` URL string — it must receive
+    // a RawImage. Decode the base64 into a Blob and build one.
+    const { pipeline, RawImage } = await import("@xenova/transformers");
     if (!pipelinePromise) {
-      pipelinePromise = (async () => {
-        const { pipeline } = await import("@xenova/transformers");
-        return pipeline("image-classification", env.LOCAL_GRADER_MODEL);
-      })();
+      pipelinePromise = pipeline("image-classification", env.LOCAL_GRADER_MODEL);
     }
     const classifier = (await pipelinePromise) as (
-      input: string,
+      input: unknown,
       opts?: { topk?: number },
     ) => Promise<Classification[]>;
-    return classifier(dataUrl, { topk: 3 });
+
+    const bytes = Buffer.from(image.base64, "base64");
+    const blob = new Blob([bytes], { type: image.mimeType });
+    const raw = await RawImage.fromBlob(blob);
+    return classifier(raw, { topk: 3 });
   };
 }
 
@@ -61,9 +65,7 @@ export function createLocalGrader(opts?: { classify?: ClassifyFn }): ImageGrader
         throw new ValidationError("Local grader received no images.");
       }
       const first = images[0];
-      const dataUrl = `data:${first.mimeType};base64,${first.base64}`;
-
-      const results = await classify(dataUrl);
+      const results = await classify(first);
       const top = results[0] ?? { label: "unknown", score: 0.4 };
       const grade = confidenceToGrade(top.score);
 

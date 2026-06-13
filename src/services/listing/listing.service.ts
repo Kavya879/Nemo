@@ -115,7 +115,7 @@ export function createListingService(deps: ListingDeps = defaultDeps()) {
     /** Builds and persists the listing, marking the item LISTED. */
     async create(input: ListingInput): Promise<Listing> {
       const draft = await this.buildDraft(input);
-      const listing = await listingRepository.create({
+      const listing = await listingRepository.upsertByItem(draft.itemId, {
         title: draft.title,
         description: draft.description,
         price: draft.price,
@@ -123,7 +123,6 @@ export function createListingService(deps: ListingDeps = defaultDeps()) {
         photoUrl: draft.photoUrl,
         status: "ACTIVE",
         healthCard: draft.healthCard as unknown as Prisma.InputJsonValue,
-        item: { connect: { id: draft.itemId } },
       });
       await itemRepository.updateStatus(draft.itemId, "LISTED");
       return listing;

@@ -3,6 +3,7 @@ import type {
   CreditTotalsDTO,
   CreditsResultDTO,
   GradeResultDTO,
+  ItemDTO,
   ListingDTO,
   MatchResultDTO,
   PreventionResultDTO,
@@ -92,6 +93,8 @@ export interface RoutingContextInput {
 
 export const apiClient = {
   health: () => request<{ status: string; db: string }>("/api/health"),
+
+  getItems: () => request<ItemDTO[]>("/api/items"),
 
   createReturn: (input: { itemId: string; reason: string; photos?: string[] }) =>
     request<ReturnDTO>("/api/returns", {

@@ -11,6 +11,19 @@ export const listingRepository = {
     return prisma.listing.create({ data });
   },
 
+  /** Idempotent create-or-update keyed by the (unique) itemId. */
+  async upsertByItem(
+    itemId: string,
+    data: Omit<Prisma.ListingCreateInput, "item">,
+  ): Promise<Listing> {
+    const { ...fields } = data;
+    return prisma.listing.upsert({
+      where: { itemId },
+      create: { ...fields, item: { connect: { id: itemId } } },
+      update: { ...fields },
+    });
+  },
+
   async findById(id: string): Promise<ListingWithItem | null> {
     return prisma.listing.findUnique({ where: { id }, include: { item: true } });
   },

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" \"http://localhost:3001/return\")",
+      "Bash(curl -s \"http://localhost:3001/return\")",
+      "Bash(time curl -s -X POST http://localhost:3001/api/grade -H 'content-type: application/json' -d '{\"images\":[{\"base64\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"mimeType\":\"image/png\"}]}')"
+    ]
+  }
+}
