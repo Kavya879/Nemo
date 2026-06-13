@@ -1,39 +1,57 @@
 import Link from "next/link";
-import { Card, CardBody } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { GradeBadge } from "@/components/GradeBadge";
 import type { ListingDTO } from "@/types/dto";
 
+function categoryIcon(cat?: string) {
+  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : "📦";
+}
+
+/** Star row derived from the verified condition confidence (data-driven). */
+function Stars({ rating }: { rating: number }) {
+  const full = Math.round(rating * 2) / 2;
+  return (
+    <span className="flex items-center gap-1">
+      <span className="text-star" aria-hidden>
+        {"★".repeat(Math.floor(full))}
+        {full % 1 ? "½" : ""}
+        <span className="text-line">{"★".repeat(5 - Math.ceil(full))}</span>
+      </span>
+      <span className="text-xs text-link">{rating.toFixed(1)}</span>
+    </span>
+  );
+}
+
 export function ListingCard({ listing }: { listing: ListingDTO }) {
   const grade = listing.healthCard.verifiedCondition;
+  const rating = 3 + listing.healthCard.confidence * 2; // 3..5
   return (
-    <Link href={`/marketplace/${listing.id}`} className="block">
-      <Card className="h-full transition-shadow hover:shadow-cardHover">
-        <div className="flex h-40 items-center justify-center rounded-t-card bg-mist text-5xl">
-          {listing.item?.category === "Footwear"
-            ? "👟"
-            : listing.item?.category === "Electronics"
-              ? "🎧"
-              : listing.item?.category === "Apparel"
-                ? "🧥"
-                : "📦"}
-        </div>
-        <CardBody className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Badge tone="success">Certified Pre-Owned</Badge>
-            <GradeBadge grade={grade} size="sm" />
-          </div>
-          <h3 className="line-clamp-2 text-sm font-semibold text-ink">{listing.title}</h3>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold text-ink">
-              ₹{listing.price.toLocaleString("en-IN")}
-            </span>
-            <span className="text-xs text-storm">
-              {Math.round(listing.pricePct * 100)}% of original
-            </span>
-          </div>
-        </CardBody>
-      </Card>
+    <Link
+      href={`/marketplace/${listing.id}`}
+      className="flex flex-col gap-2 rounded bg-white p-4 transition-shadow hover:shadow-cardHover"
+    >
+      <div className="flex h-40 items-center justify-center rounded bg-mist/50 text-6xl">
+        {categoryIcon(listing.item?.category)}
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="rounded bg-success/10 px-1.5 py-0.5 text-[11px] font-bold text-success">
+          Certified Pre-Owned
+        </span>
+        <GradeBadge grade={grade} size="sm" />
+      </div>
+      <h3 className="line-clamp-2 text-sm text-ink hover:text-linkHover">{listing.title}</h3>
+      <Stars rating={rating} />
+      <div className="flex items-baseline gap-0.5">
+        <span className="text-xs text-ink">₹</span>
+        <span className="text-2xl font-medium text-ink">
+          {listing.price.toLocaleString("en-IN")}
+        </span>
+        <span className="ml-2 text-xs text-storm">
+          {Math.round(listing.pricePct * 100)}% of original
+        </span>
+      </div>
+      <p className="text-xs text-storm">
+        FREE delivery · ReLoop {listing.healthCard.warranty}
+      </p>
     </Link>
   );
 }

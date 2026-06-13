@@ -13,15 +13,23 @@ const config: Config = {
         // Amazon core palette
         squid: "#131921", // dark navy header
         slate: "#232f3e", // secondary nav
-        zest: "#febd69", // signature amazon yellow/orange
+        slateHover: "#37475a",
+        zest: "#febd69", // signature amazon yellow/orange (search btn)
         zestDark: "#f3a847",
         ember: "#ff9900", // CTA orange
         link: "#007185", // teal link
+        linkHover: "#c7511f", // orange-red link hover
+        amzYellow: "#ffd814", // Add to Cart
+        amzYellowDark: "#f7ca00",
+        amzOrange: "#ffa41c", // Buy Now
+        amzOrangeDark: "#fa8900",
+        priceRed: "#b12704",
+        star: "#de7921",
         // Neutrals
         ink: "#0f1111",
         storm: "#565959",
         cloud: "#f7f8f8",
-        mist: "#eaeded",
+        mist: "#eaeded", // amazon page background
         line: "#d5d9d9",
         // Status / grades
         gradeA: "#067d62",

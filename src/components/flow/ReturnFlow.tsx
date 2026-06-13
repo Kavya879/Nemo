@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { apiClient, ApiError } from "@/lib/api-client";
 import type {
+  EligibleOrderDTO,
   GradeResultDTO,
   ItemDTO,
   ListingDTO,
@@ -57,8 +58,8 @@ const transition = { duration: 0.35 };
 
 export function ReturnFlow() {
   const [step, setStep] = useState<Step>("select");
-  const [items, setItems] = useState<ItemDTO[]>([]);
-  const [itemsError, setItemsError] = useState<string | null>(null);
+  const [orders, setOrders] = useState<EligibleOrderDTO[]>([]);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<ItemDTO | null>(null);
   const [reason, setReason] = useState(REASONS[0]);
@@ -76,9 +77,9 @@ export function ReturnFlow() {
 
   useEffect(() => {
     apiClient
-      .getItems()
-      .then(setItems)
-      .catch((e) => setItemsError(e instanceof Error ? e.message : "Failed to load items"));
+      .getOrders()
+      .then(setOrders)
+      .catch((e) => setOrdersError(e instanceof Error ? e.message : "Failed to load orders"));
   }, []);
 
   function describeError(e: unknown): string {
@@ -195,31 +196,56 @@ export function ReturnFlow() {
           {step === "select" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold">Start a return</h2>
-                <p className="text-sm text-storm">Pick an item, add a couple of photos, and tell us why.</p>
+                <h2 className="text-xl font-bold">Return or replace items</h2>
+                <p className="text-sm text-storm">
+                  Choose a delivered order within its return window. Items outside the window
+                  can&apos;t be returned.
+                </p>
               </div>
 
-              {itemsError && <ErrorState message={itemsError} />}
+              {ordersError && <ErrorState message={ordersError} />}
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {items.map((it) => (
-                  <button
-                    key={it.id}
-                    onClick={() => setSelected(it)}
-                    className={`rounded-card border p-4 text-left transition-shadow hover:shadow-cardHover ${
-                      selected?.id === it.id ? "border-zestDark ring-2 ring-zest" : "border-line bg-white"
-                    }`}
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="font-semibold">{it.name}</span>
-                      {it.currentGrade && <GradeBadge grade={it.currentGrade} size="sm" />}
-                    </div>
-                    <p className="text-xs text-storm">
-                      {it.brand ? `${it.brand} · ` : ""}
-                      {it.category} · ₹{it.originalPrice.toLocaleString("en-IN")}
-                    </p>
-                  </button>
-                ))}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {orders.map((o) => {
+                  const it = o.order.item;
+                  const eligible = o.returnEligible;
+                  const isSelected = selected?.id === it.id;
+                  return (
+                    <button
+                      key={o.order.id}
+                      onClick={() => eligible && setSelected(it)}
+                      disabled={!eligible}
+                      className={`rounded border bg-white p-4 text-left transition-shadow ${
+                        !eligible
+                          ? "cursor-not-allowed opacity-60"
+                          : isSelected
+                            ? "border-ember ring-2 ring-zest"
+                            : "border-line hover:shadow-cardHover"
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="font-semibold">{it.name}</span>
+                        {it.currentGrade && <GradeBadge grade={it.currentGrade} size="sm" />}
+                      </div>
+                      <p className="text-xs text-storm">
+                        {it.brand ? `${it.brand} · ` : ""}
+                        {it.category} · ₹{it.originalPrice.toLocaleString("en-IN")}
+                      </p>
+                      <p className="mt-1 text-xs text-storm">
+                        Delivered {new Date(o.order.deliveredAt).toLocaleDateString("en-IN")}
+                      </p>
+                      <div className="mt-2">
+                        {eligible ? (
+                          <Badge tone="success">
+                            Returnable · {o.returnDaysLeft} day(s) left
+                          </Badge>
+                        ) : (
+                          <Badge tone="danger">{o.reasonIfNot ?? "Not returnable"}</Badge>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
               {selected && (

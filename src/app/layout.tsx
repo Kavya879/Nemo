@@ -15,9 +15,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-cloud text-ink antialiased">
+      <body className="min-h-screen bg-mist text-ink antialiased">
         <Navbar />
-        <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
+        <main className="min-h-[calc(100vh-6rem)]">{children}</main>
+        <footer className="mt-10 bg-slate py-8 text-center text-sm text-mist/80">
+          <p className="font-bold text-white">
+            Re<span className="text-zest">Loop</span>
+          </p>
+          <p className="mt-1">The intelligent bridge between returns and second-life buyers.</p>
+        </footer>
       </body>
     </html>
   );

@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import type { ListingDTO } from "@/types/dto";
-import { PageShell } from "@/components/PageShell";
 import { ListingCard } from "@/components/ListingCard";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 
-export default function MarketplacePage() {
+function MarketplaceInner() {
+  const params = useSearchParams();
+  const q = params.get("q")?.toLowerCase() ?? "";
   const [listings, setListings] = useState<ListingDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,32 +21,60 @@ export default function MarketplacePage() {
       .then(setListings)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load listings"));
   }
-
   useEffect(load, []);
 
-  return (
-    <PageShell>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Second-Life Marketplace</h1>
-        <p className="text-sm text-storm">
-          Certified pre-owned, each with a verified Product Health Card. Buy with confidence.
-        </p>
-      </div>
+  const filtered = useMemo(() => {
+    if (!listings) return [];
+    if (!q) return listings;
+    return listings.filter(
+      (l) =>
+        l.title.toLowerCase().includes(q) ||
+        l.item?.category?.toLowerCase().includes(q) ||
+        l.item?.name?.toLowerCase().includes(q),
+    );
+  }, [listings, q]);
 
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
       {error && <ErrorState message={error} onRetry={load} />}
       {!error && !listings && <LoadingState label="Loading marketplace…" />}
-      {listings && listings.length === 0 && (
-        <p className="rounded-card border border-line bg-white p-8 text-center text-storm">
-          No listings yet. Run a return through the spine to create one.
-        </p>
+      {listings && (
+        <>
+          <div className="mb-3 border-b border-line pb-2 text-sm text-ink">
+            {q ? (
+              <>
+                <span className="text-storm">Results for </span>
+                <span className="font-bold">&quot;{q}&quot;</span>
+                <span className="text-storm"> — {filtered.length} item(s)</span>
+              </>
+            ) : (
+              <>
+                <span className="font-bold">{filtered.length}</span>
+                <span className="text-storm"> results in Second-Life Marketplace</span>
+              </>
+            )}
+          </div>
+          {filtered.length === 0 ? (
+            <p className="rounded bg-white p-8 text-center text-storm">
+              No matching listings. Run a return through the spine to create one.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filtered.map((l) => (
+                <ListingCard key={l.id} listing={l} />
+              ))}
+            </div>
+          )}
+        </>
       )}
-      {listings && listings.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {listings.map((l) => (
-            <ListingCard key={l.id} listing={l} />
-          ))}
-        </div>
-      )}
-    </PageShell>
+    </div>
+  );
+}
+
+export default function MarketplacePage() {
+  return (
+    <Suspense fallback={<LoadingState label="Loading marketplace…" />}>
+      <MarketplaceInner />
+    </Suspense>
   );
 }
