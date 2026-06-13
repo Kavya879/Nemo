@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Navbar } from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "ReLoop — The intelligent bridge for returns",
@@ -15,7 +16,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-cloud text-ink antialiased">
-        {children}
+        <Navbar />
+        <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
       </body>
     </html>
   );
