@@ -142,6 +142,8 @@ export const apiClient = {
 
   getListings: () => request<ListingDTO[]>("/api/listings"),
 
+  getListing: (id: string) => request<ListingDTO>(`/api/listings/${id}`),
+
   match: (category: string, lat: number, lng: number, radiusKm?: number) => {
     const q = new URLSearchParams({
       category,
