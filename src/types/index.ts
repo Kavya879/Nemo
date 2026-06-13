@@ -51,3 +51,34 @@ export const GeoPointSchema = z.object({
   lng: z.number().min(-180).max(180),
 });
 export type GeoPoint = z.infer<typeof GeoPointSchema>;
+
+// ── Listing & Product Health Card ──────────────────────────────────────────
+export const ProductHealthCardSchema = z.object({
+  verifiedCondition: GradeSchema,
+  confidence: z.number().min(0).max(1),
+  flaws: z.array(DetectedFlawSchema),
+  history: z.array(z.string()),
+  warranty: z.string(),
+});
+export type ProductHealthCard = z.infer<typeof ProductHealthCardSchema>;
+
+export const ListingDraftSchema = z.object({
+  itemId: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  price: z.number().nonnegative(),
+  pricePct: z.number().min(0).max(2),
+  photoUrl: z.string().nullable(),
+  healthCard: ProductHealthCardSchema,
+});
+export type ListingDraft = z.infer<typeof ListingDraftSchema>;
+
+// ── Matching ───────────────────────────────────────────────────────────────
+export const BuyerMatchSchema = z.object({
+  buyerId: z.string(),
+  name: z.string(),
+  distanceKm: z.number().nonnegative(),
+  lat: z.number(),
+  lng: z.number(),
+});
+export type BuyerMatch = z.infer<typeof BuyerMatchSchema>;
