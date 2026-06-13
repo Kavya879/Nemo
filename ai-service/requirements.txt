@@ -1,0 +1,17 @@
+# Core dependencies
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic>=2.0.0
+requests==2.32.3
+
+# Vision
+opencv-python==4.10.0.84
+numpy==2.2.1
+
+# Optional: embeddings (install separately if needed)
+# sentence-transformers>=2.2.0
+# torch>=2.0.0
+
+# Optional: YOLO defect detection
+# ultralytics>=8.0.0

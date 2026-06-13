@@ -1,0 +1,381 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CONSUMER
+  SELLER
+  ADMIN
+}
+
+enum ProductCategory {
+  APPAREL
+  FOOTWEAR
+  ELECTRONICS
+  HOME
+  TOYS
+  BOOKS
+  OTHER
+}
+
+enum ProductStatus {
+  ACTIVE
+  RETURNED
+  GRADED
+  ROUTED
+  LISTED
+  SOLD
+  DONATED
+  LIQUIDATED
+  EXCHANGED
+  REFURBISHED
+}
+
+enum ReturnRoute {
+  RESALE
+  REFURBISH
+  DONATE
+  LIQUIDATE
+  PEER_EXCHANGE
+}
+
+enum ConditionGrade {
+  A
+  B
+  C
+  D
+}
+
+enum ListingStatus {
+  DRAFT
+  LISTED
+  SOLD
+  EXPIRED
+  WITHDRAWN
+}
+
+enum GreenCreditAction {
+  ROUTE_AWARD
+  BONUS_QUALITY
+  BONUS_SPEED
+  BONUS_REPEAT
+  BONUS_LOCAL
+  ADMIN_REVOKE
+  ADMIN_REISSUE
+}
+
+enum ReturnStatus {
+  DRAFT
+  GRADED
+  ROUTED
+  COMPLETED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         UserRole @default(CONSUMER)
+  region       String
+  greenCredits Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products       Product[]
+  returns        Return[]
+  resaleListings ResaleListing[]
+  peerMatches    PeerMatch[]          @relation("MatchReceiver")
+  creditLedger   GreenCreditLedger[]
+  sizeProfiles   SizeProfile[]
+  sellerAudits   SellerListingAudit[]
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  title         String
+  brand         String?
+  category      ProductCategory
+  sku           String?
+  originalPrice Float?
+  purchaseDate  DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  ownerId       String
+  owner         User            @relation(fields: [ownerId], references: [id])
+
+  items  ProductItem[]
+  events ProductEvent[]
+}
+
+model ProductItem {
+  id            String          @id @default(cuid())
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id])
+  size          String?
+  color         String?
+  condition     ConditionGrade?
+  status        ProductStatus   @default(ACTIVE)
+  serialHash    String?         @unique
+  materialNotes String[]
+  ownerCount    Int             @default(1)
+  cityTrail     String[]
+  carbonSaved   Float           @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  returns          Return[]
+  images           ProductImage[]
+  inspections      AIInspection[]
+  healthCards      HealthCard[]
+  routingDecisions RoutingDecision[]
+  resaleListings   ResaleListing[]
+  peerMatches      PeerMatch[]
+}
+
+model Return {
+  id            String       @id @default(cuid())
+  productItemId String
+  productItem   ProductItem  @relation(fields: [productItemId], references: [id])
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  reason        String
+  details       String?
+  region        String
+  status        ReturnStatus @default(DRAFT)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  images          ProductImage[]
+  inspection      AIInspection?
+  healthCard      HealthCard?
+  routingDecision RoutingDecision?
+  creditEntries   GreenCreditLedger[]
+}
+
+model ProductImage {
+  id            String      @id @default(cuid())
+  productItemId String
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  returnId      String?
+  return        Return?     @relation(fields: [returnId], references: [id])
+  url           String
+  filename      String
+  mimeType      String
+  sizeBytes     Int
+  qualityScore  Int?
+  isClear       Boolean?
+  createdAt     DateTime    @default(now())
+}
+
+model AIInspection {
+  id            String      @id @default(cuid())
+  productItemId String
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  returnId      String      @unique
+  return        Return      @relation(fields: [returnId], references: [id])
+
+  // Text analysis
+  severeTerms String[]
+  mildTerms   String[]
+  unusedTerms String[]
+
+  // Vision analysis (OpenCV)
+  laplacianVar   Float?
+  brightnessMean Float?
+  edgeDensity    Float?
+  isClear        Boolean @default(false)
+
+  // YOLO defect detection
+  yoloDefects Int      @default(0)
+  yoloLabels  String[]
+
+  // Ollama reasoning
+  reasoning       String?
+  reasoningSource String  @default("template") // "ollama" | "template" | "fallback"
+
+  // Degradation flags
+  servicesUsed String[]
+  fallbackMode Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model HealthCard {
+  id            String      @id @default(cuid())
+  productItemId String
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  returnId      String      @unique
+  return        Return      @relation(fields: [returnId], references: [id])
+
+  conditionScore Int
+  qualityScore   Int
+  historyScore   Int
+  confidence     Int
+  grade          ConditionGrade
+
+  routeReason  String
+  nextAction   String
+  riskFlags    String[]
+  greenCredits Int      @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model RoutingDecision {
+  id            String      @id @default(cuid())
+  productItemId String
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  returnId      String      @unique
+  return        Return      @relation(fields: [returnId], references: [id])
+
+  route          ReturnRoute
+  priority       Int
+  conditionMet   String
+  overriddenBy   String?
+  previousRoute  ReturnRoute?
+  overrideReason String?
+  overriddenAt   DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model ResaleListing {
+  id            String      @id @default(cuid())
+  productItemId String
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  sellerId      String
+  seller        User        @relation(fields: [sellerId], references: [id])
+
+  title           String
+  description     String
+  price           Float
+  originalPrice   Float?
+  priceConfidence Int?
+  grade           ConditionGrade
+  status          ListingStatus  @default(DRAFT)
+  buyerRegion     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PeerMatch {
+  id            String      @id @default(cuid())
+  productItemId String
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  receiverId    String
+  receiver      User        @relation("MatchReceiver", fields: [receiverId], references: [id])
+
+  pool        String
+  region      String
+  category    ProductCategory
+  size        String?
+  urgency     Int
+  distanceKm  Float
+  demandLevel String
+
+  // Composite scoring
+  distanceScore  Float
+  urgencyScore   Float
+  sizeScore      Float
+  demandScore    Float
+  compositeScore Float
+
+  matched   Boolean   @default(false)
+  matchedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model SellerListingAudit {
+  id       String @id @default(cuid())
+  sellerId String
+  seller   User   @relation(fields: [sellerId], references: [id])
+
+  listingTitle  String
+  originalTitle String
+  originalDesc  String
+  returnReasons String[]
+  returnCount   Int      @default(0)
+
+  // AI rewrite
+  detectedIssue String?
+  revisedTitle  String?
+  revisedDesc   String?
+  preventionTip String?
+  rewriteStatus String  @default("pending") // "pending" | "generated" | "applied" | "failed"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SizeProfile {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  category     ProductCategory
+  usualSize    String
+  preferredFit String? // "relaxed" | "regular" | "slim"
+  footWidth    String? // "narrow" | "regular" | "wide"
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category])
+}
+
+model BrandFitRule {
+  id             String          @id @default(cuid())
+  brand          String
+  category       ProductCategory
+  sizeAdjustment Int             @default(0) // +1 means size up, -1 means size down
+  fitType        String          @default("regular") // "narrow" | "regular" | "wide" | "slim"
+  confidence     Int             @default(50) // 0-100
+  sampleSize     Int             @default(0)
+  recommendation String
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([brand, category])
+}
+
+model GreenCreditLedger {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+  returnId String?
+  return   Return? @relation(fields: [returnId], references: [id])
+
+  action   GreenCreditAction
+  points   Int
+  reason   String
+  category String // "route" | "bonus_quality" | "bonus_speed" | "bonus_repeat" | "bonus_local"
+
+  createdAt DateTime @default(now())
+}
+
+model ProductEvent {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  eventType   String // "created" | "returned" | "graded" | "routed" | "resold" | "donated" | "exchanged" | "refurbished" | "liquidated" | "repaired"
+  description String
+  metadata    String? // JSON string for flexible event data
+  city        String?
+  carbonDelta Float   @default(0)
+
+  createdAt DateTime @default(now())
+}
