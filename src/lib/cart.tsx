@@ -37,7 +37,7 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = "reloop-cart-v1";
+const STORAGE_KEY = "nemo-cart-v1";
 const MAX_QTY = 10;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {

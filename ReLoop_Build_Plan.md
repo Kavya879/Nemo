@@ -1,6 +1,6 @@
-# ReLoop — Phased Build Plan
+# Nemo 🐟 — Phased Build Plan
 
-**Companion to:** ReLoop_Project.md
+**Companion to:** Nemo 🐟_Project.md
 **For use with:** Kiro / Codex / Claude Code
 **Approach:** Backend first, then frontend. Modular, scalable, test-verified at every phase.
 
@@ -44,7 +44,7 @@ These rules keep the codebase modular, scalable, and clean. The AI agent must fo
 ## The Folder Structure (set up once, in Phase 0)
 
 ```
-reloop/
+nemo/
 ├── prisma/
 │   ├── schema.prisma            # database schema (source of truth for data)
 │   └── seed.ts                  # seeds config rules + demo data
@@ -349,7 +349,7 @@ The backend is now a solid, tested API. The frontend is built on top of it, scre
 
 **What to build:**
 - **Second-Life Marketplace screen** — a clean Amazon-style storefront listing certified pre-owned items (from `GET /api/listings`), each showing its **Product Health Card** (verified condition, history, warranty). A buyer can open an item and feel safe.
-- **Green Credits + Impact Dashboard** — the reward animation after a second-life action ("you saved 4.2kg CO₂ and ₹120 · +50 ReLoop Credits") and a small dashboard of the running total (from `/api/credits`).
+- **Green Credits + Impact Dashboard** — the reward animation after a second-life action ("you saved 4.2kg CO₂ and ₹120 · +50 Nemo 🐟 Credits") and a small dashboard of the running total (from `/api/credits`).
 - **Return Prevention banner** — on a product page *before* purchase, the personalized guidance ("customers with your foot profile prefer size 8 in this brand") from `/api/prevention`, with the "best return is no return" framing.
 - Polish pass: consistent animations, empty states, responsive layout, accessibility basics (labels, contrast, keyboard focus).
 
@@ -395,7 +395,7 @@ The backend is now a solid, tested API. The frontend is built on top of it, scre
 - Open the live URL on the demo device/network → full flow works end to end.
 - Run the demo script start to finish on the live app → flawless.
 - Trigger the fallback plan once → it works.
-- Final checklist against ReLoop_Project.md: all 8 features present, all 4 Amazon pillars covered, all 4 scoring criteria addressed → ticked.
+- Final checklist against Nemo 🐟_Project.md: all 8 features present, all 4 Amazon pillars covered, all 4 scoring criteria addressed → ticked.
 - ✅ **Gate:** ready to present.
 
 ---

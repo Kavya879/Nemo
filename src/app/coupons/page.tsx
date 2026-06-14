@@ -40,7 +40,7 @@ export default function CouponsPage() {
         <div className="mt-6 rounded bg-white p-8 text-center text-storm">
           No coupons yet.{" "}
           <Link href="/impact" className="font-medium text-link hover:underline">
-            Redeem your ReLoop Credits
+            Redeem your Amazon Nemo Credits
           </Link>{" "}
           to get started.
         </div>

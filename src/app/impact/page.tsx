@@ -45,7 +45,7 @@ export default function ImpactPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="text-2xl font-bold">Your Impact &amp; ReLoop Credits</h1>
+      <h1 className="text-2xl font-bold">Your Impact &amp; Amazon Nemo Credits</h1>
       <p className="text-sm text-storm">
         Every reuse is CO₂ avoided and money saved. Spend your credits on rewards below.
       </p>
@@ -58,7 +58,7 @@ export default function ImpactPage() {
           {/* Balance hero */}
           <div className="mt-5 flex flex-col items-start justify-between gap-4 rounded bg-squid p-6 text-white sm:flex-row sm:items-center">
             <div>
-              <div className="text-sm text-mist/70">Available ReLoop Credits</div>
+              <div className="text-sm text-mist/70">Available Amazon Nemo Credits</div>
               <div className="text-5xl font-bold text-zest">{totals.availableBalance}</div>
               <div className="mt-1 text-xs text-mist/70">
                 {totals.totalCredits} earned · {totals.totalRedeemed} redeemed

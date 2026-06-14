@@ -62,7 +62,7 @@ export function ListingCard({ listing }: { listing: ListingDTO }) {
         </span>
       </div>
       <p className="text-xs text-storm">
-        FREE delivery · ReLoop {listing.healthCard.warranty}
+        FREE delivery · Amazon Nemo {listing.healthCard.warranty}
       </p>
     </Link>
   );

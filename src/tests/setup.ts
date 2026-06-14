@@ -10,7 +10,7 @@ procEnv.NODE_ENV = "test";
 // Default to the local docker-compose stack so integration tests run against a
 // real DB/Redis. Override via real env vars (e.g. CI) to point elsewhere.
 process.env.DATABASE_URL ??=
-  "postgresql://reloop:reloop@localhost:55432/reloop?sslmode=disable";
+  "postgresql://nemo:nemo@localhost:55432/nemo?sslmode=disable";
 process.env.UPSTASH_REDIS_REST_URL ??= "http://localhost:8079";
 process.env.UPSTASH_REDIS_REST_TOKEN ??= "local_dev_token";
 process.env.GRADER_PROVIDER ??= "local";

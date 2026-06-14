@@ -2,20 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-
-function icon(cat?: string) {
-  return cat === "Footwear"
-    ? "👟"
-    : cat === "Electronics"
-      ? "🎧"
-      : cat === "Apparel"
-        ? "🧥"
-        : cat === "Books"
-          ? "📚"
-          : cat === "Toys"
-            ? "🧸"
-            : "📦";
-}
+import { categoryIcon } from "@/lib/category-icon";
 
 /** Product image with a graceful emoji fallback when the URL is missing/broken. */
 export function ProductImage({
@@ -33,7 +20,7 @@ export function ProductImage({
   if (!src || failed) {
     return (
       <div className={cn("flex items-center justify-center bg-mist/50", className)}>
-        <span className="text-4xl">{icon(category)}</span>
+        <span className="text-4xl">{categoryIcon(category)}</span>
       </div>
     );
   }

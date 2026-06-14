@@ -29,7 +29,7 @@ export function createTemplateCopyGenerator(): ListingCopyGenerator {
         ? ` Noted condition details: ${input.flaws}.`
         : " No significant flaws detected.";
 
-      const description = `This ${input.category.toLowerCase()} is ReLoop-certified and ${condition}.${flawNote} Inspected, verified, and backed by our second-life guarantee.`;
+      const description = `This ${input.category.toLowerCase()} is Amazon Nemo-certified and ${condition}.${flawNote} Inspected, verified, and backed by our second-life guarantee.`;
 
       return ListingCopySchema.parse({ title: title.slice(0, 120), description });
     },

@@ -6,6 +6,9 @@ import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { useUser } from "@/lib/user-context";
 import { isAdmin } from "@/lib/session";
+import { useCategories } from "@/lib/use-categories";
+import { Logo } from "@/components/Logo";
+import { DeliverTo } from "@/components/DeliverTo";
 
 /**
  * Amazon-style global header: logo, deliver-to, full search bar with category
@@ -14,7 +17,7 @@ import { isAdmin } from "@/lib/session";
  */
 const DEPARTMENTS = [
   { href: "/marketplace", label: "Second-Life Deals" },
-  { href: "/sell", label: "Sell on ReLoop" },
+  { href: "/sell", label: "Sell on Amazon Nemo" },
   { href: "/return", label: "Returns" },
   { href: "/impact", label: "Your Impact" },
   { href: "/coupons", label: "Coupons" },
@@ -25,12 +28,15 @@ const DEPARTMENTS = [
 export function Navbar() {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [cat, setCat] = useState("all");
   const { count } = useCart();
   const { user } = useUser();
+  const { categories } = useCategories();
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    router.push(`/marketplace${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+    const term = cat !== "all" ? cat : q;
+    router.push(`/marketplace${term ? `?q=${encodeURIComponent(term)}` : ""}`);
   }
 
   return (
@@ -42,33 +48,26 @@ export function Navbar() {
           href="/"
           className="flex shrink-0 items-center gap-1 rounded border border-transparent px-2 py-1 hover:border-white"
         >
-          <span className="text-2xl">♻️</span>
-          <span className="text-xl font-bold tracking-tight">
-            Re<span className="text-zest">Loop</span>
-          </span>
+          <Logo tone="dark" size="md" />
         </Link>
 
         {/* Deliver to */}
-        <div className="hidden items-end gap-1 rounded border border-transparent px-2 py-1 hover:border-white lg:flex">
-          <span className="text-lg">📍</span>
-          <div className="leading-tight">
-            <div className="text-xs text-mist/70">Deliver to</div>
-            <div className="text-sm font-bold">Bengaluru 560001</div>
-          </div>
-        </div>
+        <DeliverTo />
 
         {/* Search */}
         <form onSubmit={submitSearch} className="flex h-10 flex-1 overflow-hidden rounded-md">
           <select
             aria-label="Search category"
+            value={cat}
+            onChange={(e) => setCat(e.target.value)}
             className="hidden bg-mist px-2 text-xs text-ink sm:block"
-            defaultValue="all"
           >
             <option value="all">All</option>
-            <option>Footwear</option>
-            <option>Electronics</option>
-            <option>Apparel</option>
-            <option>Home</option>
+            {categories.map((c) => (
+              <option key={c.category} value={c.category}>
+                {c.category}
+              </option>
+            ))}
           </select>
           <input
             value={q}

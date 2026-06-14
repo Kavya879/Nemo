@@ -6,6 +6,7 @@ import { useUser } from "@/lib/user-context";
 import { PRESET_USERS, slugUserId, type SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,11 +27,9 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-10">
-      <div className="mb-6 text-center">
-        <div className="text-3xl font-bold">
-          Re<span className="text-ember">Loop</span>
-        </div>
-        <p className="mt-1 text-sm text-storm">
+      <div className="mb-6 flex flex-col items-center text-center">
+        <Logo tone="light" size="lg" />
+        <p className="mt-3 text-sm text-storm">
           Sign in to simulate different people. Orders, credits, coupons and returns are
           separate per account. (Google sign-in coming later.)
         </p>

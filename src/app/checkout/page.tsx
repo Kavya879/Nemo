@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart";
+import { useUser } from "@/lib/user-context";
 import { apiClient, ApiError } from "@/lib/api-client";
 import type { CheckoutResultDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
@@ -15,32 +16,29 @@ interface Address {
   pin: string;
   state: string;
 }
-const DEFAULT_ADDRESS: Address = {
-  name: "Demo User",
-  line1: "221B, MG Road",
-  city: "Bengaluru",
-  pin: "560001",
-  state: "Karnataka",
-};
-const ADDRESS_KEY = "reloop-address-v1";
+const EMPTY_ADDRESS: Address = { name: "", line1: "", city: "", pin: "", state: "" };
+const ADDRESS_KEY = "nemo-address-v1";
+const isCompleteAddress = (a: Address) =>
+  Boolean(a.name.trim() && a.line1.trim() && a.city.trim() && a.pin.trim() && a.state.trim());
 
 const PAYMENT_METHODS = [
   { id: "upi", label: "UPI (Google Pay / PhonePe)" },
   { id: "card", label: "Credit / Debit Card" },
   { id: "cod", label: "Cash on Delivery" },
-  { id: "credits", label: "Pay with ReLoop Credits" },
+  { id: "credits", label: "Pay with Amazon Nemo Credits" },
 ];
 
 export default function CheckoutPage() {
   const { lines, subtotal, count, clear } = useCart();
+  const { user } = useUser();
   const [method, setMethod] = useState("upi");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CheckoutResultDTO | null>(null);
 
-  const [address, setAddress] = useState<Address>(DEFAULT_ADDRESS);
+  const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [editingAddr, setEditingAddr] = useState(false);
-  const [draft, setDraft] = useState<Address>(DEFAULT_ADDRESS);
+  const [draft, setDraft] = useState<Address>(EMPTY_ADDRESS);
 
   useEffect(() => {
     try {
@@ -49,11 +47,18 @@ export default function CheckoutPage() {
         const a = JSON.parse(raw) as Address;
         setAddress(a);
         setDraft(a);
+        return;
       }
     } catch {
       /* ignore */
     }
-  }, []);
+    // No saved address yet — prefill the name from the signed-in user and
+    // prompt the user to complete it (nothing is assumed/hardcoded).
+    const seeded = { ...EMPTY_ADDRESS, name: user.name };
+    setAddress(seeded);
+    setDraft(seeded);
+    setEditingAddr(true);
+  }, [user.name]);
 
   function saveAddress() {
     setAddress(draft);
@@ -245,9 +250,17 @@ export default function CheckoutPage() {
 
       {/* Order summary */}
       <aside className="h-fit rounded bg-white p-5">
-        <Button size="lg" className="w-full" disabled={placing} onClick={placeOrder}>
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={placing || !isCompleteAddress(address)}
+          onClick={placeOrder}
+        >
           {placing ? "Placing order…" : "Place your order"}
         </Button>
+        {!isCompleteAddress(address) && (
+          <p className="mt-2 text-xs text-storm">Add a delivery address to place your order.</p>
+        )}
         {error && <p className="mt-2 text-sm text-danger">{error}</p>}
         <div className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
           <div className="flex justify-between">

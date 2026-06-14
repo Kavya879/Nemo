@@ -2,17 +2,32 @@
 
 import { useRef, useState } from "react";
 
+export type PhotoRole = "front" | "back" | "side" | "packaging" | "defect" | "other";
+
 export type UploadedPhoto = {
   base64: string;
   mimeType: "image/jpeg" | "image/png" | "image/webp";
   preview: string;
   name: string;
+  /** Which angle/aspect this photo captures — drives multi-image verification. */
+  role: PhotoRole;
 };
 
-export const MAX_PHOTOS = 4;
+export const MAX_PHOTOS = 5;
 export const MAX_BYTES = 1024 * 1024; // 1 MB
 
-function readImage(file: File): Promise<UploadedPhoto> {
+/** Suggested capture order so a fresh set covers verification well. */
+export const ROLE_ORDER: PhotoRole[] = ["front", "back", "side", "packaging", "defect"];
+const ROLE_LABELS: Record<PhotoRole, string> = {
+  front: "Front",
+  back: "Back",
+  side: "Side",
+  packaging: "Packaging",
+  defect: "Defect",
+  other: "Other",
+};
+
+function readImage(file: File, role: PhotoRole): Promise<UploadedPhoto> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -20,7 +35,7 @@ function readImage(file: File): Promise<UploadedPhoto> {
       const base64 = result.split(",")[1] ?? "";
       const mime =
         file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
-      resolve({ base64, mimeType: mime, preview: result, name: file.name });
+      resolve({ base64, mimeType: mime, preview: result, name: file.name, role });
     };
     reader.onerror = () => reject(new Error("Could not read image"));
     reader.readAsDataURL(file);
@@ -59,7 +74,10 @@ export function PhotoUploader({
         rejected.push(file.name);
         continue;
       }
-      accepted.push(await readImage(file));
+      // Auto-assign the next uncovered role so a fresh set covers verification.
+      const used = new Set([...photos, ...accepted].map((p) => p.role));
+      const nextRole = ROLE_ORDER.find((r) => !used.has(r)) ?? "other";
+      accepted.push(await readImage(file, nextRole));
     }
     if (rejected.length) {
       setError(`${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the 1 MB limit and ${rejected.length === 1 ? "was" : "were"} skipped.`);
@@ -73,22 +91,40 @@ export function PhotoUploader({
     setError(null);
   }
 
+  function setRole(index: number, role: PhotoRole) {
+    onChange(photos.map((p, i) => (i === index ? { ...p, role } : p)));
+  }
+
   return (
     <div>
       <div className="flex flex-wrap gap-3">
         {photos.map((p, i) => (
-          <div key={i} className="relative h-24 w-24 overflow-hidden rounded border border-line">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.preview} alt={p.name} className="h-full w-full object-cover" />
-            <button
-              type="button"
-              onClick={() => remove(i)}
-              aria-label={`Discard ${p.name}`}
-              title="Discard photo"
-              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-squid/85 text-sm font-bold leading-none text-white hover:bg-danger"
+          <div key={i} className="w-24">
+            <div className="relative h-24 w-24 overflow-hidden rounded border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.preview} alt={p.name} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label={`Discard ${p.name}`}
+                title="Discard photo"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-squid/85 text-sm font-bold leading-none text-white hover:bg-danger"
+              >
+                ×
+              </button>
+            </div>
+            <select
+              value={p.role}
+              onChange={(e) => setRole(i, e.target.value as PhotoRole)}
+              aria-label="Photo angle"
+              className="mt-1 w-24 rounded border border-line bg-white px-1 py-0.5 text-[11px] text-ink"
             >
-              ×
-            </button>
+              {(Object.keys(ROLE_LABELS) as PhotoRole[]).map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
           </div>
         ))}
 
@@ -96,7 +132,7 @@ export function PhotoUploader({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex h-24 w-24 flex-col items-center justify-center rounded border-2 border-dashed border-line text-storm hover:border-link hover:text-link"
+            className="flex h-24 w-24 flex-col items-center justify-center self-start rounded border-2 border-dashed border-line text-storm hover:border-link hover:text-link"
           >
             <span className="text-2xl leading-none">＋</span>
             <span className="mt-1 text-xs">Add photo</span>
@@ -114,7 +150,8 @@ export function PhotoUploader({
       />
 
       <p className="mt-1 text-xs text-storm">
-        Up to {max} photos · max 1 MB each · {photos.length}/{max} added
+        Up to {max} photos · max 1 MB each · {photos.length}/{max} added. Tag each angle
+        (front, back, side, packaging, defect) for accurate verification.
       </p>
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>

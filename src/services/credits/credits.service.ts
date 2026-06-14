@@ -140,7 +140,7 @@ export function createCreditsService() {
           createdAt: r.createdAt,
           description: reward?.description ?? r.rewardLabel,
           redeemUrl: reward?.redeemUrl ?? "/marketplace",
-          redeemAt: reward?.redeemAt ?? "ReLoop Marketplace",
+          redeemAt: reward?.redeemAt ?? "Amazon Nemo Marketplace",
           kind: reward?.kind ?? "voucher",
         };
       });

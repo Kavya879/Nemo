@@ -60,8 +60,8 @@ export default function GalleryPage() {
             verifiedCondition: "A",
             confidence: 0.94,
             flaws: [{ type: "sole-wear", severity: "minor", location: "outsole" }],
-            history: ["Returned: size too small", "AI-graded A (94%)", "ReLoop certified"],
-            warranty: "30-day ReLoop guarantee",
+            history: ["Returned: size too small", "AI-graded A (94%)", "Amazon Nemo certified"],
+            warranty: "30-day Amazon Nemo guarantee",
           }}
         />
       </section>

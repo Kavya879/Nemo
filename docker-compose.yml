@@ -7,7 +7,7 @@
 #
 #   docker compose up -d
 #   # then in .env:
-#   DATABASE_URL=postgresql://reloop:reloop@localhost:55432/reloop?sslmode=disable
+#   DATABASE_URL=postgresql://amazon-nemo:amazon-nemo@localhost:55432/amazon-nemo?sslmode=disable
 #   UPSTASH_REDIS_REST_URL=http://localhost:8079
 #   UPSTASH_REDIS_REST_TOKEN=local_dev_token
 
@@ -16,16 +16,16 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: reloop
-      POSTGRES_PASSWORD: reloop
-      POSTGRES_DB: reloop
+      POSTGRES_USER: amazon-nemo
+      POSTGRES_PASSWORD: amazon-nemo
+      POSTGRES_DB: amazon-nemo
     ports:
       # Host 5433 → container 5432 (host 5432 may already be taken by a local PG).
       - "55432:5432"
     volumes:
       - reloop_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U reloop"]
+      test: ["CMD-SHELL", "pg_isready -U amazon-nemo"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -1,6 +1,11 @@
-import { env } from "@/config/env";
 import { UpstreamError, ValidationError } from "@/lib/errors";
 import type { DetectedFlaw, Grade, ImageInput } from "@/types";
+import {
+  cosine,
+  getExtractor,
+  getZeroShot,
+  rawImageFromInput,
+} from "@/services/vision/clip-pipeline";
 import {
   GraderOutputSchema,
   type GradeContext,
@@ -23,52 +28,6 @@ import {
  */
 
 const GRADES_ORDER: Grade[] = ["A", "B", "C", "D"];
-
-type ZeroShot = (image: unknown, labels: string[]) => Promise<Array<{ label: string; score: number }>>;
-type Extractor = (image: unknown, opts?: Record<string, unknown>) => Promise<{ data: Float32Array | number[] }>;
-
-let zeroShotP: Promise<ZeroShot> | null = null;
-let extractorP: Promise<Extractor> | null = null;
-
-async function rawImageFromInput(image: ImageInput) {
-  const { RawImage } = await import("@xenova/transformers");
-  const bytes = Buffer.from(image.base64, "base64");
-  const blob = new Blob([bytes], { type: image.mimeType });
-  return RawImage.fromBlob(blob);
-}
-
-async function getZeroShot(): Promise<ZeroShot> {
-  if (!zeroShotP) {
-    zeroShotP = (async () => {
-      const { pipeline } = await import("@xenova/transformers");
-      return (await pipeline("zero-shot-image-classification", env.CLIP_MODEL)) as unknown as ZeroShot;
-    })();
-  }
-  return zeroShotP;
-}
-
-async function getExtractor(): Promise<Extractor> {
-  if (!extractorP) {
-    extractorP = (async () => {
-      const { pipeline } = await import("@xenova/transformers");
-      return (await pipeline("image-feature-extraction", env.CLIP_MODEL)) as unknown as Extractor;
-    })();
-  }
-  return extractorP;
-}
-
-function cosine(a: Float32Array | number[], b: Float32Array | number[]): number {
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  const denom = Math.sqrt(na) * Math.sqrt(nb);
-  return denom === 0 ? 0 : dot / denom;
-}
 
 const CONDITION_PROMPTS = (category: string) => [
   `a brand new, flawless ${category} in pristine condition`,

@@ -14,6 +14,7 @@ import { Analytics } from "@/components/admin/Analytics";
 import { ConfigControl } from "@/components/admin/ConfigControl";
 import { PreventionInsights } from "@/components/admin/PreventionInsights";
 import { ListingReview } from "@/components/admin/ListingReview";
+import { ChallengeReview } from "@/components/admin/ChallengeReview";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 
 const AdminMap = dynamic(() => import("@/components/admin/AdminMap"), {
@@ -23,6 +24,7 @@ const AdminMap = dynamic(() => import("@/components/admin/AdminMap"), {
 
 const TABS = [
   "Command Center",
+  "Challenges",
   "Matching Map",
   "Analytics",
   "Config Control",
@@ -134,7 +136,7 @@ export default function AdminPage() {
         <div className="mb-3 text-5xl">🔒</div>
         <h1 className="text-2xl font-bold">Admin access only</h1>
         <p className="mt-2 text-sm text-storm">
-          The Operations Console is restricted to Amazon/ReLoop operations staff. You&apos;re
+          The Operations Console is restricted to Amazon Nemo operations staff. You&apos;re
           signed in as <span className="font-semibold">{user.name}</span> ({user.role}).
         </p>
         <Link href="/login" className="mt-5 inline-block">
@@ -169,6 +171,7 @@ export default function AdminPage() {
       </div>
 
       {tab === "Command Center" && <CommandCenter />}
+      {tab === "Challenges" && <ChallengeReview />}
       {tab === "Matching Map" && <MapTab />}
       {tab === "Analytics" && <Analytics />}
       {tab === "Config Control" && <ConfigControl />}

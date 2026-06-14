@@ -1,4 +1,5 @@
 import { env } from "@/config/env";
+import { fetchImageAsInput } from "@/lib/remote-image";
 import { gradeRepository } from "@/repositories/grade.repository";
 import { itemRepository } from "@/repositories/item.repository";
 import { GradeResultSchema, type GradeResult, type ImageInput } from "@/types";
@@ -25,6 +26,11 @@ export interface GradeRequest {
   images: ImageInput[];
   /** Optional — when present, the result is persisted and the item is updated. */
   itemId?: string;
+  /**
+   * Pre-grade verification scores to store alongside the grade so the full
+   * assessment (match / quality / fraud / grade) lives together on one record.
+   */
+  verification?: { productMatchConfidence: number; fraudRiskScore: number };
 }
 
 export interface GradingDeps {
@@ -42,20 +48,6 @@ function defaultDeps(): GradingDeps {
         ? createClipGrader()
         : local;
   return { primary, fallback: local };
-}
-
-/** Fetches a reference product image (by URL) into an ImageInput for comparison. */
-async function fetchReference(url: string): Promise<ImageInput | undefined> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return undefined;
-    const buf = Buffer.from(await res.arrayBuffer());
-    const ct = res.headers.get("content-type") ?? "";
-    const mimeType = ct.includes("png") ? "image/png" : ct.includes("webp") ? "image/webp" : "image/jpeg";
-    return { base64: buf.toString("base64"), mimeType };
-  } catch {
-    return undefined;
-  }
 }
 
 export function createGradingService(deps: GradingDeps = defaultDeps()) {
@@ -77,7 +69,7 @@ export function createGradingService(deps: GradingDeps = defaultDeps()) {
       if (req.itemId) {
         const item = await itemRepository.findById(req.itemId);
         if (item) {
-          const reference = item.imageUrl ? await fetchReference(item.imageUrl) : undefined;
+          const reference = item.imageUrl ? await fetchImageAsInput(item.imageUrl) : undefined;
           context = { category: item.category, reference };
         }
       }
@@ -109,6 +101,12 @@ export function createGradingService(deps: GradingDeps = defaultDeps()) {
           summary: result.summary,
           gradedBy: result.gradedBy,
           tookMs: result.tookMs,
+          ...(req.verification
+            ? {
+                productMatchConfidence: req.verification.productMatchConfidence,
+                fraudRiskScore: req.verification.fraudRiskScore,
+              }
+            : {}),
           item: { connect: { id: req.itemId } },
         });
         await itemRepository.updateGrade(req.itemId, result.grade);

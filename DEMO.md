@@ -1,4 +1,4 @@
-# ReLoop — Demo Script & Roadmap
+# Amazon Nemo — Demo Script & Roadmap
 
 ## The one-line story
 

@@ -10,8 +10,35 @@ export interface GradeResultDTO {
   confidence: number;
   flaws: DetectedFlaw[];
   summary: string;
-  gradedBy: "bedrock" | "local";
+  gradedBy: "bedrock" | "local" | "clip";
   tookMs: number;
+  productMatchConfidence?: number | null;
+  fraudRiskScore?: number | null;
+}
+
+// ── Pre-grade product verification ──
+export interface VerificationAssessmentDTO {
+  productMatchConfidence: number;
+  fraudRiskScore: number;
+  attributes: {
+    category: number;
+    brand: number;
+    model: number;
+    packaging: number;
+    visual: number;
+  };
+  deviations: { attribute: string; detail: string; severity: "minor" | "moderate" | "severe" }[];
+  recommendation: "PROCEED" | "REQUEST_EVIDENCE" | "MANUAL_REVIEW";
+  verifiedBy: "bedrock" | "clip" | "local";
+  imageRoles: string[];
+  summary: string;
+  tookMs: number;
+}
+
+/** Combined response of POST /api/grade. */
+export interface GradeWithVerificationDTO {
+  verification: VerificationAssessmentDTO | null;
+  grade: GradeResultDTO;
 }
 
 export interface RuleCandidateDTO {
@@ -169,6 +196,89 @@ export interface ReturnDTO {
   createdAt: string;
 }
 
+export interface CategoryCountDTO {
+  category: string;
+  total: number;
+  activeListings: number;
+}
+
+// ── AI-verdict challenge / dispute ──
+export type ChallengeStatusDTO =
+  | "OPEN"
+  | "UNDER_REVIEW"
+  | "NEEDS_MORE_INFO"
+  | "RESOLVED_UPHELD"
+  | "RESOLVED_MODIFIED"
+  | "RESOLVED_OVERRIDDEN"
+  | "REJECTED";
+
+export interface ChallengeSnapshotDTO {
+  grade: Grade | null;
+  gradeConfidence: number | null;
+  productMatchConfidence: number | null;
+  fraudRiskScore: number | null;
+  flaws: DetectedFlaw[];
+  gradeSummary: string | null;
+  gradedBy: string | null;
+  verification: {
+    productMatchConfidence: number;
+    fraudRiskScore: number;
+    attributes: { category: number; brand: number; model: number; packaging: number; visual: number };
+    deviations: { attribute: string; detail: string; severity: string }[];
+    recommendation: string;
+    verifiedBy: string;
+  } | null;
+  capturedAt: string;
+}
+
+export interface ChallengeEvidenceDTO {
+  id: string;
+  data: string;
+  mimeType: string;
+  role: string;
+  note: string | null;
+  addedBy: string;
+  createdAt: string;
+}
+
+export interface ChallengeEventDTO {
+  id: string;
+  status: ChallengeStatusDTO;
+  message: string;
+  actor: string;
+  data?: unknown;
+  createdAt: string;
+}
+
+export interface ChallengeDTO {
+  id: string;
+  returnCaseId: string;
+  itemId: string;
+  openedByUserId: string;
+  openedByName: string | null;
+  status: ChallengeStatusDTO;
+  reason: string;
+  sellerComment: string;
+  snapshot: ChallengeSnapshotDTO;
+  assignedTo: string | null;
+  resolution: "UPHOLD" | "MODIFY" | "OVERRIDE" | "REJECT" | null;
+  revisedGrade: Grade | null;
+  resolutionReasoning: string | null;
+  resolvedByName: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  evidence: ChallengeEvidenceDTO[];
+  events: ChallengeEventDTO[];
+  returnCase: {
+    id: string;
+    status: string;
+    reason: string;
+    grade: Grade | null;
+    item: ItemDTO;
+  };
+}
+
 // ── Admin console ──
 export interface AdminCaseRowDTO {
   id: string;
@@ -299,6 +409,9 @@ export interface FeasibilityDTO {
 
 export type ReturnStatusDTO =
   | "INITIATED"
+  | "VERIFYING"
+  | "EVIDENCE_REQUESTED"
+  | "MANUAL_REVIEW"
   | "GRADED"
   | "FEASIBILITY_ANALYZED"
   | "RETURN_APPROVED"
@@ -335,6 +448,10 @@ export interface ReturnCaseDTO {
   status: ReturnStatusDTO;
   decision: "FEASIBLE" | "NOT_FEASIBLE" | null;
   grade: Grade | null;
+  gradeConfidence: number | null;
+  verificationResultId: string | null;
+  productMatchConfidence: number | null;
+  fraudRiskScore: number | null;
   feasibility: FeasibilityDTO | null;
   secondLifeListingId: string | null;
   secondLifeDeadline: string | null;

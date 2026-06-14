@@ -5,16 +5,12 @@ import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import type { ListingDTO } from "@/types/dto";
 import { ProductImage } from "@/components/ProductImage";
-
-const CATEGORIES = [
-  { label: "Footwear", icon: "👟" },
-  { label: "Electronics", icon: "🎧" },
-  { label: "Apparel", icon: "🧥" },
-  { label: "Home", icon: "🍳" },
-];
+import { useCategories } from "@/lib/use-categories";
+import { categoryIcon } from "@/lib/category-icon";
 
 export default function HomePage() {
   const [listings, setListings] = useState<ListingDTO[]>([]);
+  const { categories } = useCategories();
   useEffect(() => {
     apiClient.getListings().then(setListings).catch(() => setListings([]));
   }, []);
@@ -43,16 +39,20 @@ export default function HomePage() {
           <div className="rounded bg-white p-4 shadow-card">
             <h2 className="mb-3 text-lg font-bold text-ink">Shop by category</h2>
             <div className="grid grid-cols-2 gap-3">
-              {CATEGORIES.map((c) => (
+              {categories.slice(0, 6).map((c) => (
                 <Link
-                  key={c.label}
-                  href={`/marketplace?q=${encodeURIComponent(c.label)}`}
+                  key={c.category}
+                  href={`/marketplace?q=${encodeURIComponent(c.category)}`}
                   className="flex flex-col items-center gap-1 rounded bg-mist/60 p-3 text-center hover:bg-mist"
                 >
-                  <span className="text-3xl">{c.icon}</span>
-                  <span className="text-xs font-medium text-ink">{c.label}</span>
+                  <span className="text-3xl">{categoryIcon(c.category)}</span>
+                  <span className="text-xs font-medium text-ink">{c.category}</span>
                 </Link>
               ))}
+              {categories.length === 0 &&
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-16 animate-pulse rounded bg-mist/60" />
+                ))}
             </div>
             <Link href="/marketplace" className="mt-3 block text-sm font-medium text-link hover:text-linkHover hover:underline">
               Shop all second-life deals
@@ -112,7 +112,7 @@ export default function HomePage() {
               🌱
             </div>
             <p className="mt-3 text-xs text-storm">
-              Earn ReLoop Credits and redeem them for vouchers, perks & tree-planting.
+              Earn Amazon Nemo Credits and redeem them for vouchers, perks & tree-planting.
             </p>
             <Link href="/impact" className="mt-2 text-sm font-medium text-link hover:text-linkHover hover:underline">
               View impact &amp; redeem

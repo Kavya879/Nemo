@@ -21,7 +21,7 @@ export function ProductHealthCard({ card }: { card: HealthCard }) {
           <GradeBadge grade={card.verifiedCondition} />
           <div>
             <p className="text-sm font-semibold text-ink">Product Health Card</p>
-            <p className="text-xs text-storm">ReLoop-verified condition</p>
+            <p className="text-xs text-storm">Amazon Nemo-verified condition</p>
           </div>
         </div>
         <Badge tone="success">{Math.round(card.confidence * 100)}% confidence</Badge>

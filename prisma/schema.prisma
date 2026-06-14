@@ -1,4 +1,4 @@
-// ReLoop database schema — source of truth for all persisted data.
+// Amazon Nemo database schema — source of truth for all persisted data.
 //
 // Business rules (thresholds, radii, price bands, CO₂ factors, credit rates)
 // live in the RoutingConfig table, NOT in code — that is what makes the
@@ -65,6 +65,10 @@ enum OrderStatus {
 /// The full lifecycle of a return decision case.
 enum ReturnStatus {
   INITIATED
+  // Pre-grade product-verification gate
+  VERIFYING
+  EVIDENCE_REQUESTED
+  MANUAL_REVIEW
   GRADED
   FEASIBILITY_ANALYZED
   // Feasible path
@@ -102,6 +106,39 @@ enum Disposition {
   DONATED
 }
 
+/// Outcome of the pre-grade product-verification gate.
+enum VerificationRecommendation {
+  /// Identity confirmed + low fraud risk → safe to grade.
+  PROCEED
+  /// Match/quality too low → ask the seller for more/better photos.
+  REQUEST_EVIDENCE
+  /// Fraud signals or strong deviation → escalate to a human reviewer.
+  MANUAL_REVIEW
+}
+
+/// Lifecycle of an AI-verdict challenge (seller dispute → ops review).
+enum ChallengeStatus {
+  OPEN
+  UNDER_REVIEW
+  NEEDS_MORE_INFO
+  RESOLVED_UPHELD
+  RESOLVED_MODIFIED
+  RESOLVED_OVERRIDDEN
+  REJECTED
+}
+
+/// The reviewer's decision on a challenge.
+enum ChallengeResolution {
+  /// AI verdict was correct — keep it.
+  UPHOLD
+  /// Adjust the grade (a tweak the evidence supports).
+  MODIFY
+  /// Replace the AI verdict entirely with the reviewer's grade.
+  OVERRIDE
+  /// Dispute rejected — AI verdict stands, no further action.
+  REJECT
+}
+
 // ── Core models ─────────────────────────────────────────────────────────────
 
 /// The physical product moving through the system.
@@ -121,13 +158,14 @@ model Item {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  returns          Return[]
-  gradeResults     GradeResult[]
-  routingDecisions RoutingDecision[]
-  listing          Listing?
-  greenCredits     GreenCredit[]
-  orders           Order[]
-  returnCases      ReturnCase[]
+  returns             Return[]
+  gradeResults        GradeResult[]
+  routingDecisions    RoutingDecision[]
+  listing             Listing?
+  greenCredits        GreenCredit[]
+  orders              Order[]
+  returnCases         ReturnCase[]
+  verificationResults VerificationResult[]
 
   @@index([category])
   @@index([status])
@@ -145,6 +183,11 @@ model ReturnCase {
   reason  String
   status  ReturnStatus    @default(INITIATED)
   decision ReturnDecision?
+
+  // Pre-grade verification snapshot
+  verificationResultId   String?
+  productMatchConfidence Float?
+  fraudRiskScore         Float?
 
   // Grading snapshot
   gradeResultId   String?
@@ -174,6 +217,7 @@ model ReturnCase {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   events    ReturnEvent[]
+  challenges Challenge[]
 
   @@index([userId])
   @@index([status])
@@ -229,15 +273,113 @@ model GradeResult {
   itemId     String
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   grade      Grade
+  /// Quality Assessment Confidence (0..1) — how sure the grader is of the grade.
   confidence Float
   /// [{ type, severity, location }]
   flaws      Json     @default("[]")
   summary    String
   gradedBy   GradedBy
   tookMs     Int
+  /// Carried over from the verification gate so the full assessment lives together.
+  productMatchConfidence Float?
+  fraudRiskScore         Float?
   createdAt  DateTime @default(now())
 
   @@index([itemId])
+}
+
+/// The pre-grade product-verification assessment: does the uploaded item match
+/// the originally purchased product? Produced BEFORE any grade is assigned.
+model VerificationResult {
+  id           String      @id @default(cuid())
+  itemId       String
+  item         Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  returnCaseId String?
+  /// Product Match Confidence (0..1).
+  productMatchConfidence Float
+  /// Fraud Risk Score (0..1) — higher means more likely a swap/counterfeit/wrong item.
+  fraudRiskScore         Float
+  /// Per-dimension match: { category, brand, model, packaging, visual } each 0..1.
+  attributes   Json
+  /// [{ attribute, detail, severity }] — observed mismatches.
+  deviations   Json        @default("[]")
+  recommendation VerificationRecommendation
+  verifiedBy   GradedBy
+  /// Roles of the images supplied, e.g. ["front","back","packaging"].
+  imageRoles   String[]    @default([])
+  summary      String
+  tookMs       Int
+  createdAt    DateTime    @default(now())
+
+  @@index([itemId])
+  @@index([returnCaseId])
+}
+
+/// A seller's formal challenge of an AI verdict — the review ticket itself.
+model Challenge {
+  id             String          @id @default(cuid())
+  returnCaseId   String
+  returnCase     ReturnCase      @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  itemId         String
+  openedByUserId String
+  openedByName   String?
+  status         ChallengeStatus @default(OPEN)
+  /// Short reason category, e.g. "Grade too low".
+  reason         String
+  /// The seller's free-text explanation.
+  sellerComment  String
+  /// Immutable snapshot of the AI assessment at dispute time
+  /// (grade, confidence, fraud risk, product match, verification, flaws).
+  snapshot       Json
+  /// Reviewer / team the ticket is routed to.
+  assignedTo     String?
+  resolution     ChallengeResolution?
+  /// The grade the reviewer set (on MODIFY/OVERRIDE).
+  revisedGrade   Grade?
+  resolutionReasoning String?
+  resolvedByName String?
+  resolvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  evidence ChallengeEvidence[]
+  events   ChallengeEvent[]
+
+  @@index([returnCaseId])
+  @@index([status])
+  @@index([openedByUserId])
+}
+
+/// Supporting evidence a seller (or reviewer) attaches to a challenge.
+model ChallengeEvidence {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  /// base64 data string or URL.
+  data        String
+  mimeType    String    @default("image/jpeg")
+  role        String    @default("other")
+  note        String?
+  /// Who attached it: the seller or a reviewer.
+  addedBy     String    @default("seller")
+  createdAt   DateTime  @default(now())
+
+  @@index([challengeId])
+}
+
+/// Append-only audit trail of every challenge state change (transparency).
+model ChallengeEvent {
+  id          String          @id @default(cuid())
+  challengeId String
+  challenge   Challenge       @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  status      ChallengeStatus
+  message     String
+  /// Who acted: "seller", a reviewer name, or "system".
+  actor       String          @default("system")
+  data        Json?
+  createdAt   DateTime        @default(now())
+
+  @@index([challengeId])
 }
 
 /// The chosen second-life path plus the reasoning + inputs that produced it.
@@ -310,6 +452,14 @@ model RoutingConfig {
 
   // ── Matching ──
   matchRadiusKm Float @default(5)
+
+  // ── Pre-grade verification thresholds ──
+  /// Minimum Product Match Confidence (0..1) required to proceed to grading.
+  verificationMatchThreshold Float @default(0.7)
+  /// Fraud Risk Score (0..1) at/above which a case is escalated to manual review.
+  fraudRiskThreshold Float @default(0.5)
+  /// Minimum Quality Assessment Confidence (0..1) for a grade to be auto-assigned.
+  minQualityConfidence Float @default(0.6)
 
   // ── Routing thresholds ──
   /// Minimum nearby interested buyers for the peer-to-peer path to win.

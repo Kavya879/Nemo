@@ -1,8 +1,8 @@
 {
-  "name": "reloop",
+  "name": "amazon-nemo",
   "version": "1.0.0",
   "private": true,
-  "description": "ReLoop — the intelligent bridge between returns and second-life buyers.",
+  "description": "Amazon Nemo — the intelligent bridge between returns and second-life buyers.",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

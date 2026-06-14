@@ -15,6 +15,9 @@ import { WorkflowTracker } from "./WorkflowTracker";
 import { Countdown } from "./Countdown";
 import { EventTimeline } from "./EventTimeline";
 import { PhotoUploader, type UploadedPhoto } from "./PhotoUploader";
+import { VerificationPanel } from "@/components/VerificationPanel";
+import { ChallengePanel } from "@/components/ChallengePanel";
+import type { VerificationAssessmentDTO } from "@/types/dto";
 
 const REASONS = [
   "Size too small",
@@ -70,16 +73,22 @@ export function ReturnWorkflow() {
       const created = await apiClient.initiateReturnCase(selected.id, reason);
       setRc(created);
 
-      setBusyLabel("Running AI grading on your photos…");
-      const images = photos.length
-        ? photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType }))
-        : [{ base64: TINY_PNG, mimeType: "image/png" as const }];
+      setBusyLabel("Verifying the product & AI grading your photos…");
+      const images = photos.map((p) => ({
+        base64: p.base64,
+        mimeType: p.mimeType,
+        role: p.role,
+      }));
       const graded = await apiClient.gradeCase(created.id, images);
       setRc(graded);
 
-      setBusyLabel("Running Feasibility Analysis Engine…");
-      const analyzed = await apiClient.analyzeCase(created.id);
-      setRc(analyzed);
+      // The verification gate may park the case (more evidence / manual review)
+      // instead of grading — only analyze once it has actually been GRADED.
+      if (graded.status === "GRADED") {
+        setBusyLabel("Running Feasibility Analysis Engine…");
+        const analyzed = await apiClient.analyzeCase(created.id);
+        setRc(analyzed);
+      }
     } catch (e) {
       setError(describe(e));
     } finally {
@@ -102,6 +111,27 @@ export function ReturnWorkflow() {
     },
     [],
   );
+
+  // EVIDENCE_REQUESTED → seller adds clearer photos and re-runs the gate.
+  async function resubmitEvidence() {
+    if (!rc || photos.length === 0) return;
+    setError(null);
+    setBusy(true);
+    setBusyLabel("Re-verifying with the new photos…");
+    try {
+      const images = photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType, role: p.role }));
+      const graded = await apiClient.gradeCase(rc.id, images);
+      setRc(graded);
+      if (graded.status === "GRADED") {
+        setBusyLabel("Running Feasibility Analysis Engine…");
+        setRc(await apiClient.analyzeCase(rc.id));
+      }
+    } catch (e) {
+      setError(describe(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function searchBuyer() {
     if (!rc) return;
@@ -188,13 +218,22 @@ export function ReturnWorkflow() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold">Photos (for AI grading)</label>
+                <label className="mb-1 block text-sm font-semibold">
+                  Photos for verification &amp; grading
+                </label>
+                <p className="mb-2 text-xs text-storm">
+                  We first confirm the item matches what you purchased, then grade its condition.
+                  Add clear front, back, side and packaging photos for the most accurate result.
+                </p>
                 <PhotoUploader photos={photos} onChange={setPhotos} />
               </div>
               {error && <ErrorState message={error} />}
-              <Button size="lg" disabled={busy} onClick={start}>
-                {busy ? busyLabel : "Initiate return & analyze →"}
+              <Button size="lg" disabled={busy || photos.length === 0} onClick={start}>
+                {busy ? busyLabel : "Verify, grade & analyze →"}
               </Button>
+              {photos.length === 0 && (
+                <p className="text-xs text-storm">Add at least one photo to continue.</p>
+              )}
             </CardBody>
           </Card>
         )}
@@ -207,6 +246,9 @@ export function ReturnWorkflow() {
   const inSecondLife = rc.status === "SECOND_LIFE_LISTED";
   const inVerification = rc.status === "DELIVERY_VERIFICATION";
   const isTerminal = TERMINAL.includes(rc.status);
+  const verification = latestVerification(rc);
+  const needsEvidence = rc.status === "EVIDENCE_REQUESTED";
+  const inManualReview = rc.status === "MANUAL_REVIEW";
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -222,6 +264,55 @@ export function ReturnWorkflow() {
 
       {busy && <LoadingState label={busyLabel} />}
       {error && <ErrorState message={error} />}
+
+      {/* Pre-grade product verification */}
+      {verification && (
+        <div className="mt-4">
+          <VerificationPanel
+            verification={verification}
+            finalGrade={rc.status === "GRADED" || f ? rc.grade : null}
+            qualityConfidence={rc.gradeConfidence}
+          />
+        </div>
+      )}
+
+      {/* Verification gate: more evidence requested */}
+      {needsEvidence && (
+        <Card className="mt-4 border-warn/40">
+          <CardBody className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📷</span>
+              <h2 className="font-bold">More evidence needed before grading</h2>
+            </div>
+            <p className="text-sm text-storm">
+              We couldn&apos;t confidently confirm this is the product you purchased. Please add
+              clearer, well-lit photos — front, back, side and the packaging/labels help most — and
+              re-submit for verification.
+            </p>
+            <PhotoUploader photos={photos} onChange={setPhotos} />
+            <Button disabled={busy || photos.length === 0} onClick={resubmitEvidence}>
+              Re-submit evidence &amp; re-verify
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Verification gate: escalated to manual review */}
+      {inManualReview && (
+        <Card className="mt-4 border-danger/40">
+          <CardBody className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🔎</span>
+              <h2 className="font-bold">Escalated to manual review</h2>
+            </div>
+            <p className="text-sm text-storm">
+              This return has been routed to our Operations Review team for a closer look before a
+              grade is assigned. You&apos;ll be notified when the review is complete — you can track
+              progress in the audit trail below.
+            </p>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Decision + feasibility */}
       {f && (
@@ -395,6 +486,11 @@ export function ReturnWorkflow() {
         </Card>
       )}
 
+      {/* AI-verdict challenge / dispute (available once a grade exists) */}
+      {rc.grade != null && rc.status !== "EVIDENCE_REQUESTED" && (
+        <ChallengePanel returnCaseId={rc.id} aiGrade={rc.grade} />
+      )}
+
       {/* Audit trail */}
       <EventTimeline events={rc.events} />
     </div>
@@ -418,6 +514,12 @@ function outcomeTitle(rc: ReturnCaseDTO): string {
   }
 }
 
-// A real 1x1 PNG fallback so grading always has a decodable image.
-const TINY_PNG =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+/** Pull the most recent verification assessment out of the case's event trail. */
+function latestVerification(rc: ReturnCaseDTO): VerificationAssessmentDTO | null {
+  for (let i = rc.events.length - 1; i >= 0; i--) {
+    const v = (rc.events[i].data as { verification?: VerificationAssessmentDTO } | null)
+      ?.verification;
+    if (v) return v;
+  }
+  return null;
+}

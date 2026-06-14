@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 
 /**
  * The Green Credits reward animation — fires after a second-life action.
- * "You saved 4.2kg CO₂ and ₹120 · +50 ReLoop Credits"
+ * "You saved 4.2kg CO₂ and ₹120 · +50 Amazon Nemo Credits"
  */
 export function CreditsReward({
   result,

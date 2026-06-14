@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ImageInputSchema, GeoPointSchema, RoutingPathSchema } from "@/types";
+import { RoledImageInputSchema, GeoPointSchema, RoutingPathSchema } from "@/types";
 import { RoutingContextSchema } from "@/services/routing/types";
 
 /**
@@ -51,7 +51,7 @@ export const InitiateReturnCaseSchema = z.object({
 });
 
 export const GradeImagesSchema = z.object({
-  images: z.array(ImageInputSchema).min(1).max(5),
+  images: z.array(RoledImageInputSchema).min(1).max(5),
 });
 
 export const VerifyTransferSchema = z.object({
@@ -84,10 +84,59 @@ export const ReturnRequestSchema = z.object({
 export type ReturnRequest = z.infer<typeof ReturnRequestSchema>;
 
 export const GradeRequestSchema = z.object({
-  images: z.array(ImageInputSchema).min(1).max(5),
+  images: z.array(RoledImageInputSchema).min(1).max(5),
   itemId: z.string().optional(),
 });
 export type GradeRequest = z.infer<typeof GradeRequestSchema>;
+
+/** Standalone verification request (pre-grade product authentication). */
+export const VerifyRequestSchema = z.object({
+  images: z.array(RoledImageInputSchema).min(1).max(5),
+  itemId: z.string().optional(),
+});
+export type VerifyRequestInput = z.infer<typeof VerifyRequestSchema>;
+
+// ── AI-verdict challenge / dispute ──
+const ChallengeEvidenceSchema = z.object({
+  data: z.string().min(1),
+  mimeType: z.string().optional(),
+  role: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export const OpenChallengeSchema = z.object({
+  reason: z.string().min(1),
+  comment: z.string().min(1),
+  userId: z.string().optional(),
+  userName: z.string().optional(),
+  evidence: z.array(ChallengeEvidenceSchema).max(5).default([]),
+});
+export type OpenChallengeInput = z.infer<typeof OpenChallengeSchema>;
+
+export const AddChallengeEvidenceSchema = z.object({
+  actor: z.string().min(1),
+  bySeller: z.boolean().optional(),
+  comment: z.string().optional(),
+  evidence: z.array(ChallengeEvidenceSchema).max(5).default([]),
+});
+export type AddChallengeEvidenceInput = z.infer<typeof AddChallengeEvidenceSchema>;
+
+export const AdminChallengeActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("assign"), reviewer: z.string().min(1) }),
+  z.object({
+    action: z.literal("requestInfo"),
+    reviewer: z.string().min(1),
+    message: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal("resolve"),
+    reviewer: z.string().min(1),
+    resolution: z.enum(["UPHOLD", "MODIFY", "OVERRIDE", "REJECT"]),
+    revisedGrade: z.enum(["A", "B", "C", "D"]).optional(),
+    reasoning: z.string().min(1),
+  }),
+]);
+export type AdminChallengeActionInput = z.infer<typeof AdminChallengeActionSchema>;
 
 export const RouteItemRequestSchema = z.object({
   context: RoutingContextSchema,

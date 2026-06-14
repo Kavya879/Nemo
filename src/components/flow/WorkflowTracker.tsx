@@ -3,6 +3,9 @@ import { cn } from "@/lib/cn";
 
 const LABELS: Record<ReturnStatusDTO, string> = {
   INITIATED: "Initiated",
+  VERIFYING: "Verifying",
+  EVIDENCE_REQUESTED: "Evidence Requested",
+  MANUAL_REVIEW: "Manual Review",
   GRADED: "AI Graded",
   FEASIBILITY_ANALYZED: "Feasibility",
   RETURN_APPROVED: "Approved",
@@ -26,6 +29,11 @@ const LABELS: Record<ReturnStatusDTO, string> = {
 /** Builds the milestone path actually taken by this case. */
 function milestones(rc: ReturnCaseDTO): ReturnStatusDTO[] {
   const reached = new Set(rc.events.map((e) => e.status));
+
+  // Parked at the verification gate — short path reflecting the held state.
+  if (rc.status === "EVIDENCE_REQUESTED") return ["INITIATED", "EVIDENCE_REQUESTED"];
+  if (rc.status === "MANUAL_REVIEW") return ["INITIATED", "MANUAL_REVIEW"];
+
   const path: ReturnStatusDTO[] = ["INITIATED", "GRADED", "FEASIBILITY_ANALYZED"];
 
   if (rc.decision === "FEASIBLE") {

@@ -83,6 +83,10 @@ async function seedConfig() {
 
   const base = {
     matchRadiusKm: 5,
+    // Pre-grade product-verification thresholds
+    verificationMatchThreshold: 0.7,
+    fraudRiskThreshold: 0.5,
+    minQualityConfidence: 0.6,
     peerToPeerMinBuyers: 1,
     repairabilityThreshold: 0.5,
     gradeDefaultRoutes,
@@ -415,8 +419,8 @@ async function seedListings() {
       verifiedCondition: e.grade,
       confidence: 0.9,
       flaws,
-      history: [`AI-graded ${e.grade}`, "ReLoop certified"],
-      warranty: e.grade === "D" ? "Sold as-is — no warranty" : "30-day ReLoop guarantee",
+      history: [`AI-graded ${e.grade}`, "Amazon Nemo certified"],
+      warranty: e.grade === "D" ? "Sold as-is — no warranty" : "30-day Amazon Nemo guarantee",
     };
     const icon = CATEGORY_ICON[e.category] ?? "📦";
     await prisma.listing.upsert({
@@ -425,7 +429,7 @@ async function seedListings() {
       create: {
         itemId: e.id,
         title: `Certified Pre-Owned: ${e.name} (Grade ${e.grade}) ${icon}`,
-        description: `${e.brand} ${e.name} — ReLoop-certified Grade ${e.grade}. Inspected and verified with a Product Health Card.`,
+        description: `${e.brand} ${e.name} — Amazon Nemo-certified Grade ${e.grade}. Inspected and verified with a Product Health Card.`,
         price,
         pricePct: pct,
         photoUrl: null,
@@ -685,7 +689,7 @@ async function seedReturnCases() {
 }
 
 async function main() {
-  console.info("Seeding ReLoop database…");
+  console.info("Seeding Amazon Nemo database…");
   await reset();
   await seedConfig();
   await seedItems();

@@ -89,7 +89,7 @@ export function ProductDetail({ id }: { id: string }) {
           <div className="flex items-center gap-2 text-sm">
             <span className="text-star">{"★".repeat(Math.round(rating))}<span className="text-line">{"★".repeat(5 - Math.round(rating))}</span></span>
             <span className="text-link">{rating.toFixed(1)}</span>
-            <span className="text-storm">· ReLoop verified</span>
+            <span className="text-storm">· Amazon Nemo verified</span>
           </div>
           <GradeBadge grade={listing.healthCard.verifiedCondition} showLabel />
           <hr className="border-line" />
@@ -108,7 +108,7 @@ export function ProductDetail({ id }: { id: string }) {
           </div>
           <p className="text-sm text-ink">{listing.description}</p>
           <p className="flex items-center gap-1 text-xs text-storm">
-            <span>🔒</span> Sold by a verified ReLoop seller — seller identity is protected.
+            <span>🔒</span> Sold by a verified Amazon Nemo seller — seller identity is protected.
             Condition shown is the AI-verified Product Health Card below.
           </p>
           <PreventionBanner category={category} />
@@ -144,7 +144,7 @@ export function ProductDetail({ id }: { id: string }) {
               Buy Now
             </button>
             <p className="text-center text-xs text-storm">
-              Earn ReLoop Credits 🌱 <span className="font-medium">after purchase</span>
+              Earn Amazon Nemo Credits 🌱 <span className="font-medium">after purchase</span>
             </p>
           </div>
         </div>

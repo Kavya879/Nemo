@@ -1,6 +1,6 @@
-# ReLoop — the intelligent bridge between returns and second-life buyers
+# Amazon Nemo — the intelligent bridge between returns and second-life buyers
 
-> Millions of products. No intelligent bridge. ReLoop turns a return into its best
+> Millions of products. No intelligent bridge. Amazon Nemo turns a return into its best
 > next life — **AI-graded in seconds, routed by reasoning, matched to a nearby buyer**,
 > then resold with a verified Product Health Card and rewarded with green credits.
 

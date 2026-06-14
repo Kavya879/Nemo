@@ -143,7 +143,7 @@ export default function OrdersPage() {
                         href={`/sell?itemId=${it.id}`}
                         className="rounded-full bg-amzOrange px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzOrangeDark"
                       >
-                        Resell on ReLoop
+                        Resell on Amazon Nemo
                       </Link>
                     </>
                   )}

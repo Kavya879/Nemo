@@ -14,7 +14,7 @@ export interface SessionUser {
   role: "owner" | "buyer" | "admin";
 }
 
-const KEY = "reloop-user-v1";
+const KEY = "nemo-user-v1";
 
 /** The seeded demo data (orders, the starter listing) belongs to this account. */
 export const DEFAULT_USER: SessionUser = {

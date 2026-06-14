@@ -4,20 +4,21 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import type { GradeResultDTO, ListingDTO } from "@/types/dto";
+import type { GradeResultDTO, ListingDTO, VerificationAssessmentDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
 import { GradeBadge } from "@/components/GradeBadge";
 import { LoadingState } from "@/components/flow/States";
 import { PhotoUploader, type UploadedPhoto } from "@/components/flow/PhotoUploader";
-
-const CATEGORIES = ["Footwear", "Electronics", "Apparel", "Home", "Books", "Other"];
+import { VerificationPanel } from "@/components/VerificationPanel";
+import { useCategories } from "@/lib/use-categories";
 
 function SellInner() {
   const search = useSearchParams();
   const resellItemId = search.get("itemId");
+  const { categories } = useCategories();
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState("");
   const [brand, setBrand] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [askingPrice, setAskingPrice] = useState("");
@@ -32,6 +33,7 @@ function SellInner() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<ListingDTO | null>(null);
   const [aiGrade, setAiGrade] = useState<GradeResultDTO | null>(null);
+  const [verification, setVerification] = useState<VerificationAssessmentDTO | null>(null);
 
   // Resell flow: prefill from the owned item + enforce "only after return window closes".
   useEffect(() => {
@@ -68,7 +70,13 @@ function SellInner() {
   const mrp = Number(originalPrice) || 0;
   const ask = Number(askingPrice) || 0;
   const valid =
-    !blockedReason && name.trim() && mrp > 0 && ask > 0 && ask <= mrp && photos.length > 0;
+    !blockedReason &&
+    name.trim() &&
+    category.trim() &&
+    mrp > 0 &&
+    ask > 0 &&
+    ask <= mrp &&
+    photos.length > 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,12 +99,13 @@ function SellInner() {
 
       // #19: AI grades the uploaded photos — the listing condition + Product
       // Health Card come from the grading result, not a self-declared value.
-      setBusyLabel("AI grading your photos…");
-      const graded = await apiClient.grade(
-        photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType })),
+      setBusyLabel("Verifying & AI grading your photos…");
+      const { grade: graded, verification: ver } = await apiClient.grade(
+        photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType, role: p.role })),
         itemId,
       );
       setAiGrade(graded);
+      setVerification(ver);
 
       setBusyLabel("Creating your listing…");
       const listing = await apiClient.createListing({
@@ -107,7 +116,7 @@ function SellInner() {
         price: ask,
         pricePct: Number((ask / mrp).toFixed(3)),
         history: [
-          resellItemId ? "Resold by owner (return window closed)" : "Listed by seller on ReLoop",
+          resellItemId ? "Resold by owner (return window closed)" : "Listed by seller on Amazon Nemo",
           `AI-graded ${graded.grade} (${Math.round(graded.confidence * 100)}% confidence)`,
         ],
       });
@@ -135,6 +144,15 @@ function SellInner() {
           </div>
         )}
         <p className="mt-1 text-2xl font-bold text-priceRed">₹{created.price.toLocaleString("en-IN")}</p>
+        {verification && (
+          <div className="mt-5 text-left">
+            <VerificationPanel
+              verification={verification}
+              finalGrade={aiGrade?.grade}
+              qualityConfidence={aiGrade?.confidence}
+            />
+          </div>
+        )}
         <div className="mt-5 flex justify-center gap-3">
           <Link href={`/marketplace/${created.id}`}>
             <Button size="lg">View your listing →</Button>
@@ -149,7 +167,7 @@ function SellInner() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="text-2xl font-bold">{resellItemId ? "Resell on ReLoop" : "Sell on ReLoop"}</h1>
+      <h1 className="text-2xl font-bold">{resellItemId ? "Resell on Amazon Nemo" : "Sell on Amazon Nemo"}</h1>
       <p className="text-sm text-storm">
         {resellItemId
           ? "List an item you own (its return window has closed) for second-life resale."
@@ -180,16 +198,19 @@ function SellInner() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="mb-1 block text-sm font-semibold">Category</label>
-            <select
+            <input
+              list="catalog-categories"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               disabled={locked}
+              placeholder="Pick or type a category"
               className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-mist/50"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
+            />
+            <datalist id="catalog-categories">
+              {categories.map((c) => (
+                <option key={c.category} value={c.category} />
               ))}
-            </select>
+            </datalist>
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold">Brand (optional)</label>

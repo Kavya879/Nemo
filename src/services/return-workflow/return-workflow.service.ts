@@ -10,7 +10,9 @@ import { orderRepository } from "@/repositories/order.repository";
 import { gradeRepository } from "@/repositories/grade.repository";
 import { listingRepository } from "@/repositories/listing.repository";
 import { configRepository } from "@/repositories/config.repository";
+import { verificationRepository } from "@/repositories/verification.repository";
 import { gradingService } from "@/services/grading/grading.service";
+import { verificationService } from "@/services/verification/verification.service";
 import { feasibilityService } from "@/services/feasibility/feasibility.service";
 import { pricingService } from "@/services/pricing/pricing.service";
 import { listingService } from "@/services/listing/listing.service";
@@ -18,7 +20,7 @@ import { matchingService } from "@/services/matching/matching.service";
 import { routingService } from "@/services/routing/routing.service";
 import { creditsService } from "@/services/credits/credits.service";
 import { ordersService } from "@/services/orders/orders.service";
-import type { ImageInput, RoutingPath } from "@/types";
+import type { RoledImageInput, RoutingPath } from "@/types";
 
 /**
  * Return-workflow orchestrator — the brain that runs the entire return decision
@@ -117,27 +119,122 @@ export function createReturnWorkflowService() {
       });
     },
 
-    /** 2. Run the existing AI grading system on the submitted photos. */
+    /**
+     * 2. Pre-grade verification gate, then grading.
+     *
+     * First confirms the uploaded item matches the originally purchased product
+     * (category/brand/model/packaging/visual) and screens for fraud. Only a
+     * confident, low-fraud match proceeds to condition grading; otherwise the
+     * case is parked for more evidence or escalated to manual review — no grade
+     * is assigned. Runs from INITIATED or EVIDENCE_REQUESTED (re-submission).
+     */
     async grade(input: {
       caseId: string;
-      images: ImageInput[];
+      images: RoledImageInput[];
     }): Promise<ReturnCaseWithRelations> {
       const c = await load(input.caseId);
-      assertStatus(c.status, ["INITIATED"], "grade");
+      assertStatus(c.status, ["INITIATED", "EVIDENCE_REQUESTED"], "grade");
 
+      const config = await configRepository.getRules();
+
+      // ── Verification gate ──────────────────────────────────────────────
+      const verification = await verificationService.verify({
+        images: input.images,
+        itemId: c.itemId,
+        returnCaseId: c.id,
+      });
+      const verRecord = await verificationRepository.findLatestForItem(c.itemId);
+      const scorePct = (n: number) => Math.round(n * 100);
+      const verPatch = {
+        verificationResultId: verRecord?.id ?? null,
+        productMatchConfidence: verification.productMatchConfidence,
+        fraudRiskScore: verification.fraudRiskScore,
+      };
+      const verData = {
+        verification: {
+          productMatchConfidence: verification.productMatchConfidence,
+          fraudRiskScore: verification.fraudRiskScore,
+          attributes: verification.attributes,
+          deviations: verification.deviations,
+          recommendation: verification.recommendation,
+          verifiedBy: verification.verifiedBy,
+          imageRoles: verification.imageRoles,
+          tookMs: verification.tookMs,
+        },
+      } as unknown as Prisma.InputJsonValue;
+
+      if (verification.recommendation === "MANUAL_REVIEW") {
+        return returnCaseRepository.transition(c.id, {
+          status: "MANUAL_REVIEW",
+          message: `Verification escalated to manual review — fraud risk ${scorePct(
+            verification.fraudRiskScore,
+          )}% (threshold ${scorePct(config.fraudRiskThreshold)}%), product match ${scorePct(
+            verification.productMatchConfidence,
+          )}%. ${verification.summary}`,
+          data: verData,
+          patch: verPatch,
+        });
+      }
+
+      if (verification.recommendation === "REQUEST_EVIDENCE") {
+        return returnCaseRepository.transition(c.id, {
+          status: "EVIDENCE_REQUESTED",
+          message: `More evidence needed before grading — product match ${scorePct(
+            verification.productMatchConfidence,
+          )}% is below the ${scorePct(
+            config.verificationMatchThreshold,
+          )}% threshold. Please upload clearer front, back, side and packaging photos.`,
+          data: verData,
+          patch: verPatch,
+        });
+      }
+
+      // ── Verified → condition grading ───────────────────────────────────
       const result = await gradingService.grade({
         images: input.images,
         itemId: c.itemId,
+        verification: {
+          productMatchConfidence: verification.productMatchConfidence,
+          fraudRiskScore: verification.fraudRiskScore,
+        },
       });
       const latest = await gradeRepository.findLatestForItem(c.itemId);
 
+      // Low quality-assessment confidence → escalate instead of assigning a grade.
+      if (result.confidence < config.minQualityConfidence) {
+        return returnCaseRepository.transition(c.id, {
+          status: "MANUAL_REVIEW",
+          message: `Verified (match ${scorePct(
+            verification.productMatchConfidence,
+          )}%), but quality-assessment confidence ${scorePct(
+            result.confidence,
+          )}% is below the ${scorePct(
+            config.minQualityConfidence,
+          )}% threshold — escalated for manual review before a grade is assigned.`,
+          data: {
+            ...(verData as object),
+            grade: result.grade,
+            confidence: result.confidence,
+          } as unknown as Prisma.InputJsonValue,
+          patch: { ...verPatch, gradeResultId: latest?.id ?? null },
+        });
+      }
+
       return returnCaseRepository.transition(c.id, {
         status: "GRADED",
-        message: `AI grading complete: Grade ${result.grade} (${Math.round(
-          result.confidence * 100,
-        )}% confidence, ${result.gradedBy}, ${result.tookMs}ms). ${result.summary}`,
-        data: { grade: result.grade, confidence: result.confidence, flaws: result.flaws },
+        message: `Verified & graded: product match ${scorePct(
+          verification.productMatchConfidence,
+        )}%, fraud risk ${scorePct(verification.fraudRiskScore)}%. Grade ${result.grade} (${scorePct(
+          result.confidence,
+        )}% quality confidence, ${result.gradedBy}, ${result.tookMs}ms). ${result.summary}`,
+        data: {
+          ...(verData as object),
+          grade: result.grade,
+          confidence: result.confidence,
+          flaws: result.flaws,
+        } as unknown as Prisma.InputJsonValue,
         patch: {
+          ...verPatch,
           grade: result.grade,
           gradeConfidence: result.confidence,
           gradeResultId: latest?.id ?? null,
@@ -333,7 +430,7 @@ export function createReturnWorkflowService() {
 
       return returnCaseRepository.transition(c.id, {
         status: "COMPLETED",
-        message: `Marketplace transaction completed. +${credits.credits} ReLoop Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
+        message: `Marketplace transaction completed. +${credits.credits} Amazon Nemo Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
         data: { credits } as unknown as Prisma.InputJsonValue,
       });
     },
@@ -452,7 +549,7 @@ export function createReturnWorkflowService() {
 
       return returnCaseRepository.transition(c.id, {
         status: "LIQUIDATED",
-        message: `Donated through Amazon to a partner charity. +${credits.credits} ReLoop Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
+        message: `Donated through Amazon to a partner charity. +${credits.credits} Amazon Nemo Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
         data: { disposition: "DONATED", credits } as unknown as Prisma.InputJsonValue,
         patch: { disposition: "DONATED" },
       });

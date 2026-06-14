@@ -45,6 +45,70 @@ export const ImageInputSchema = z.object({
 });
 export type ImageInput = z.infer<typeof ImageInputSchema>;
 
+/** What a given photo depicts — drives multi-image verification coverage. */
+export const ImageRoleSchema = z.enum([
+  "front",
+  "back",
+  "side",
+  "packaging",
+  "defect",
+  "other",
+]);
+export type ImageRole = z.infer<typeof ImageRoleSchema>;
+
+/** An image tagged with the angle/aspect it captures. */
+export const RoledImageInputSchema = ImageInputSchema.extend({
+  role: ImageRoleSchema.default("other"),
+});
+export type RoledImageInput = z.infer<typeof RoledImageInputSchema>;
+
+// ── Pre-grade product verification ──────────────────────────────────────────
+/** Per-dimension match scores (0..1) of the uploaded item vs the catalog product. */
+export const AttributeMatchSchema = z.object({
+  category: z.number().min(0).max(1),
+  brand: z.number().min(0).max(1),
+  model: z.number().min(0).max(1),
+  packaging: z.number().min(0).max(1),
+  visual: z.number().min(0).max(1),
+});
+export type AttributeMatch = z.infer<typeof AttributeMatchSchema>;
+
+/** An observed mismatch between the uploaded item and the expected product. */
+export const VerificationDeviationSchema = z.object({
+  attribute: z.string(),
+  detail: z.string(),
+  severity: z.enum(["minor", "moderate", "severe"]),
+});
+export type VerificationDeviation = z.infer<typeof VerificationDeviationSchema>;
+
+export const VerificationRecommendationSchema = z.enum([
+  "PROCEED",
+  "REQUEST_EVIDENCE",
+  "MANUAL_REVIEW",
+]);
+export type VerificationRecommendationT = z.infer<
+  typeof VerificationRecommendationSchema
+>;
+
+/** What a verifier implementation must return (timing/recommendation added later). */
+export const VerifierOutputSchema = z.object({
+  productMatchConfidence: z.number().min(0).max(1),
+  fraudRiskScore: z.number().min(0).max(1),
+  attributes: AttributeMatchSchema,
+  deviations: z.array(VerificationDeviationSchema),
+  summary: z.string().min(1),
+});
+export type VerifierOutput = z.infer<typeof VerifierOutputSchema>;
+
+/** The full persisted verification assessment (verifier output + gate decision). */
+export const VerificationAssessmentSchema = VerifierOutputSchema.extend({
+  recommendation: VerificationRecommendationSchema,
+  verifiedBy: z.enum(["bedrock", "clip", "local"]),
+  imageRoles: z.array(ImageRoleSchema),
+  tookMs: z.number().int().nonnegative(),
+});
+export type VerificationAssessment = z.infer<typeof VerificationAssessmentSchema>;
+
 // ── Geo ──────────────────────────────────────────────────────────────────
 export const GeoPointSchema = z.object({
   lat: z.number().min(-90).max(90),

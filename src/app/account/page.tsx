@@ -16,7 +16,7 @@ const CARDS = [
   {
     href: "/impact",
     icon: "🌱",
-    title: "ReLoop Credits & Impact",
+    title: "Amazon Nemo Credits & Impact",
     desc: "Your balance, CO₂ saved, and rewards",
   },
   {
@@ -28,7 +28,7 @@ const CARDS = [
   {
     href: "/sell",
     icon: "🏷️",
-    title: "Sell on ReLoop",
+    title: "Sell on Amazon Nemo",
     desc: "List your own items for second-life resale",
   },
   {
@@ -65,14 +65,14 @@ export default function AccountPage() {
         <div className="flex-1">
           <div className="text-lg font-bold text-ink">Hello, {user.name}</div>
           <div className="text-sm text-storm">
-            {user.role === "owner" ? "Owner / seller account" : "Buyer account"} · Bengaluru 560001
+            {user.role === "owner" ? "Owner / seller account" : "Buyer account"}
           </div>
           <Link href="/login" className="text-xs font-medium text-link hover:underline">
             Switch account
           </Link>
         </div>
         <div className="rounded bg-cloud px-5 py-3 text-center">
-          <div className="text-xs text-storm">ReLoop Credits</div>
+          <div className="text-xs text-storm">Amazon Nemo Credits</div>
           <div className="text-3xl font-bold text-zest">
             {totals ? totals.availableBalance : "—"}
           </div>

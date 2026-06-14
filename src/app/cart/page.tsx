@@ -15,7 +15,7 @@ export default function CartPage() {
       <div className="mx-auto max-w-5xl px-4 py-10">
         <div className="rounded bg-white p-10 text-center">
           <div className="mb-3 text-5xl">🛒</div>
-          <h1 className="text-2xl font-bold">Your ReLoop Cart is empty</h1>
+          <h1 className="text-2xl font-bold">Your Amazon Nemo Cart is empty</h1>
           <p className="mt-1 text-sm text-storm">Certified pre-owned deals are waiting.</p>
           <Link href="/marketplace" className="mt-4 inline-block">
             <Button size="lg">Shop the marketplace</Button>
@@ -105,11 +105,11 @@ export default function CartPage() {
           Subtotal ({count} item{count === 1 ? "" : "s"}):
           <div className="text-2xl font-bold">₹{subtotal.toLocaleString("en-IN")}</div>
         </div>
-        <p className="mt-1 text-xs text-success">FREE delivery on all ReLoop second-life orders</p>
+        <p className="mt-1 text-xs text-success">FREE delivery on all Amazon Nemo second-life orders</p>
         <Button size="lg" className="mt-4 w-full" onClick={() => router.push("/checkout")}>
           Proceed to payment
         </Button>
-        <p className="mt-2 text-center text-xs text-storm">Earn ReLoop Credits 🌱 after purchase</p>
+        <p className="mt-2 text-center text-xs text-storm">Earn Amazon Nemo Credits 🌱 after purchase</p>
       </aside>
     </div>
   );

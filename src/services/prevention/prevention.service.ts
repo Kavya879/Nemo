@@ -86,7 +86,7 @@ export function buildGuidance(
       message = `A common reason for returns here is color/appearance differing from the photos. Review all images and recent buyer photos before purchasing.`;
       break;
     case "defective":
-      message = `Some returns here cite defects on arrival. This item is ReLoop-inspected — but inspect on delivery and report issues within the return window.`;
+      message = `Some returns here cite defects on arrival. This item is Amazon Nemo-inspected — but inspect on delivery and report issues within the return window.`;
       break;
     default:
       message = `Most returns here cite "${topReason}". Review the product details against your needs before ordering to avoid a return.`;

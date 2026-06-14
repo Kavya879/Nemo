@@ -6,11 +6,14 @@ import type {
   AdminMapDTO,
   AdminPreventionDTO,
   BuyerMatchDTO,
+  CategoryCountDTO,
+  ChallengeDTO,
   CheckoutResultDTO,
   CreditTotalsDTO,
   CreditsResultDTO,
   EligibleOrderDTO,
   GradeResultDTO,
+  GradeWithVerificationDTO,
   ItemDTO,
   ListingDTO,
   MatchResultDTO,
@@ -24,7 +27,14 @@ import type {
   RoutingResultDTO,
 } from "@/types/dto";
 import type { Grade, RoutingPath, DetectedFlaw } from "@/types";
-import { currentUserId } from "@/lib/session";
+import { currentUserId, getCurrentUser } from "@/lib/session";
+
+export interface ChallengeEvidenceInput {
+  data: string;
+  mimeType?: string;
+  role?: string;
+  note?: string;
+}
 
 /**
  * The typed API client — the SINGLE place the frontend talks to the backend.
@@ -90,9 +100,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return json.data;
 }
 
+export type ImageRoleInput = "front" | "back" | "side" | "packaging" | "defect" | "other";
+
 export interface GradeImageInput {
   base64: string;
   mimeType?: "image/jpeg" | "image/png" | "image/webp";
+  role?: ImageRoleInput;
 }
 
 export interface RoutingContextInput {
@@ -108,6 +121,8 @@ export const apiClient = {
   health: () => request<{ status: string; db: string }>("/api/health"),
 
   getItems: () => request<ItemDTO[]>("/api/items"),
+
+  getCategories: () => request<CategoryCountDTO[]>("/api/catalog/categories"),
 
   createItem: (input: {
     name: string;
@@ -171,6 +186,60 @@ export const apiClient = {
       body: JSON.stringify({ action }),
     }),
 
+  // ── AI-verdict challenge / dispute ──
+  openChallenge: (
+    returnCaseId: string,
+    input: { reason: string; comment: string; evidence?: ChallengeEvidenceInput[] },
+  ) => {
+    const u = getCurrentUser();
+    return request<ChallengeDTO>(`/api/return-cases/${returnCaseId}/challenge`, {
+      method: "POST",
+      body: JSON.stringify({ ...input, userId: u.id, userName: u.name }),
+    });
+  },
+  getMyChallenges: (userId: string = currentUserId()) =>
+    request<ChallengeDTO[]>(`/api/challenges?userId=${encodeURIComponent(userId)}`),
+  getChallenge: (id: string) => request<ChallengeDTO>(`/api/challenges/${id}`),
+  addChallengeEvidence: (
+    id: string,
+    input: { comment?: string; evidence?: ChallengeEvidenceInput[] },
+  ) =>
+    request<ChallengeDTO>(`/api/challenges/${id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        actor: getCurrentUser().name,
+        bySeller: true,
+        comment: input.comment,
+        evidence: input.evidence ?? [],
+      }),
+    }),
+
+  // ── Admin: challenge review ──
+  adminChallenges: () => request<ChallengeDTO[]>("/api/admin/challenges"),
+  adminChallenge: (id: string) => request<ChallengeDTO>(`/api/admin/challenges/${id}`),
+  adminAssignChallenge: (id: string) =>
+    request<ChallengeDTO>(`/api/admin/challenges/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ action: "assign", reviewer: getCurrentUser().name }),
+    }),
+  adminRequestChallengeInfo: (id: string, message: string) =>
+    request<ChallengeDTO>(`/api/admin/challenges/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ action: "requestInfo", reviewer: getCurrentUser().name, message }),
+    }),
+  adminResolveChallenge: (
+    id: string,
+    input: {
+      resolution: "UPHOLD" | "MODIFY" | "OVERRIDE" | "REJECT";
+      revisedGrade?: Grade;
+      reasoning: string;
+    },
+  ) =>
+    request<ChallengeDTO>(`/api/admin/challenges/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ action: "resolve", reviewer: getCurrentUser().name, ...input }),
+    }),
+
   // ── Admin console ──
   adminCases: () => request<AdminCaseRowDTO[]>("/api/admin/return-cases"),
   adminCaseDetail: (id: string) =>
@@ -225,7 +294,7 @@ export const apiClient = {
     }),
 
   grade: (images: GradeImageInput[], itemId?: string) =>
-    request<GradeResultDTO>("/api/grade", {
+    request<GradeWithVerificationDTO>("/api/grade", {
       method: "POST",
       body: JSON.stringify({ images, itemId }),
     }),

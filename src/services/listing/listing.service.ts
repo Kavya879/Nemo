@@ -49,9 +49,9 @@ function defaultDeps(): ListingDeps {
 }
 
 const WARRANTY_BY_GRADE: Record<Grade, string> = {
-  A: "30-day ReLoop guarantee",
-  B: "30-day ReLoop guarantee",
-  C: "14-day ReLoop guarantee",
+  A: "30-day Amazon Nemo guarantee",
+  B: "30-day Amazon Nemo guarantee",
+  C: "14-day Amazon Nemo guarantee",
   D: "Sold as-is — no warranty",
 };
 
@@ -60,7 +60,7 @@ export function createListingService(deps: ListingDeps = defaultDeps()) {
     const history = [
       ...(input.history ?? []),
       `AI-graded ${input.grade} (${Math.round(input.confidence * 100)}% confidence)`,
-      "ReLoop certified",
+      "Amazon Nemo certified",
     ];
     return {
       verifiedCondition: input.grade,
