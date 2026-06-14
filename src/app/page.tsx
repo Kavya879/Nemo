@@ -49,18 +49,12 @@ export default function HomePage() {
             >
               Shop second-life deals
             </Link>
-            <Link
-              href="/return"
-              className="rounded-full border border-line bg-white px-5 py-2 text-sm font-bold text-ink hover:bg-mist"
-            >
-              Start a return
-            </Link>
           </div>
         </div>
       </section>
 
       {/* Card grid — uniform-height white cards on the light page background */}
-      <section className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Shop by category */}
         <article className="flex h-full flex-col rounded-card border border-line bg-white p-4 shadow-card">
           <h2 className="mb-3 text-lg font-bold text-ink">Shop by category</h2>
@@ -119,24 +113,6 @@ export default function HomePage() {
             className="mt-auto pt-3 text-sm font-medium text-link hover:text-linkHover hover:underline"
           >
             See all deals
-          </Link>
-        </article>
-
-        {/* Start a return */}
-        <article className="flex h-full flex-col rounded-card border border-line bg-white p-4 shadow-card">
-          <h2 className="mb-3 text-lg font-bold text-ink">Start a return</h2>
-          <div className="flex flex-1 items-center justify-center rounded bg-mist/50 py-8 text-6xl">
-            📦
-          </div>
-          <p className="mt-3 text-xs text-storm">
-            Return an eligible order — we verify it matches your purchase, grade it, and find its
-            second life.
-          </p>
-          <Link
-            href="/return"
-            className="mt-auto pt-2 text-sm font-medium text-link hover:text-linkHover hover:underline"
-          >
-            Start a return
           </Link>
         </article>
 
