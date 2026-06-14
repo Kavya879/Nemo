@@ -145,6 +145,40 @@ export const AdminChallengeActionSchema = z.discriminatedUnion("action", [
 ]);
 export type AdminChallengeActionInput = z.infer<typeof AdminChallengeActionSchema>;
 
+// ── Return-prevention intelligence ──
+export const RecordViewSchema = z.object({
+  itemId: z.string().min(1),
+  listingId: z.string().optional(),
+  userId: z.string().optional(),
+});
+export type RecordViewInput = z.infer<typeof RecordViewSchema>;
+
+export const CartIntelligenceSchema = z.object({
+  userId: z.string().optional(),
+  lines: z
+    .array(
+      z.object({
+        listingId: z.string().min(1),
+        itemId: z.string().min(1),
+        category: z.string().min(1),
+        originalPrice: z.number().nonnegative(),
+        title: z.string().optional(),
+      }),
+    )
+    .min(1),
+});
+export type CartIntelligenceInput = z.infer<typeof CartIntelligenceSchema>;
+
+export const CreateReviewSchema = z.object({
+  itemId: z.string().min(1),
+  rating: z.coerce.number().int().min(1).max(5),
+  title: z.string().optional(),
+  body: z.string().min(1),
+  userId: z.string().optional(),
+  authorName: z.string().optional(),
+});
+export type CreateReviewInput = z.infer<typeof CreateReviewSchema>;
+
 export const RouteItemRequestSchema = z.object({
   context: RoutingContextSchema,
   itemId: z.string().optional(),

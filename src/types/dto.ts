@@ -80,6 +80,9 @@ export interface ListingDTO {
   healthCard: ProductHealthCard;
   createdAt: string;
   item?: ItemDTO;
+  /** Compact return-risk indicator for listing cards (computed by the engine). */
+  returnRiskLevel?: "low" | "medium" | "high";
+  returnRiskScore?: number;
 }
 
 export interface ItemDTO {
@@ -200,6 +203,137 @@ export interface CategoryCountDTO {
   category: string;
   total: number;
   activeListings: number;
+}
+
+// ── Return-prevention intelligence ──
+export type RiskLevelDTO = "low" | "medium" | "high";
+
+export interface ReturnRiskDTO {
+  itemId: string;
+  score: number; // 0..100 (higher = riskier)
+  level: RiskLevelDTO;
+  confidence: number; // 0..1
+  reasons: string[];
+}
+
+export interface PassportMetricDTO {
+  score: number; // 0..100
+  confidence: number;
+  label: string;
+}
+
+export interface ProductPassportDTO {
+  itemId: string;
+  qualityScore: PassportMetricDTO;
+  durabilityPrediction: PassportMetricDTO;
+  returnRate: PassportMetricDTO;
+  sellerReliability: PassportMetricDTO;
+  sustainabilityScore: PassportMetricDTO;
+  customerSatisfaction: PassportMetricDTO;
+  authenticityConfidence: PassportMetricDTO;
+  resaleValue: { amount: number; pct: number; confidence: number; label: string };
+}
+
+export interface ReviewDTO {
+  id: string;
+  authorName: string | null;
+  rating: number;
+  title: string | null;
+  body: string;
+  sentiment: number | null;
+  createdAt: string;
+}
+
+export interface ReviewSummaryDTO {
+  count: number;
+  avgRating: number | null;
+  avgSentiment: number | null;
+  positive: ReviewDTO | null;
+  critical: ReviewDTO | null;
+  expectationMismatch: { value: number; confidence: number; reason: string };
+}
+
+export interface DigitalTwinDTO {
+  purchaseSuccessScore: number;
+  satisfactionProbability: number;
+  returnProbability: number;
+  confidence: number;
+  riskFactors: string[];
+  recommendation: string;
+}
+
+export interface CohortInsightDTO {
+  keptRate: number;
+  sampleSize: number;
+  confidence: number;
+  reason: string;
+}
+
+export interface OwnershipInsightsDTO {
+  predictedLifespanMonths: number;
+  costPerYear: number;
+  regretProbability: number;
+  regretLevel: "low" | "medium" | "high";
+}
+
+export interface CompatibilityCheckDTO {
+  dimension: string;
+  status: "ok" | "review" | "info" | "unknown";
+  detail: string;
+}
+
+export interface CompatibilityResultDTO {
+  overall: "ok" | "review" | "unknown";
+  checks: CompatibilityCheckDTO[];
+}
+
+export interface AlternativeItemDTO {
+  listingId: string;
+  itemId: string;
+  title: string;
+  price: number;
+  riskLevel: "low" | "medium" | "high";
+  riskScore: number;
+  reason: string;
+}
+
+export interface ProductIntelligenceDTO {
+  itemId: string;
+  returnRisk: ReturnRiskDTO;
+  passport: ProductPassportDTO;
+  twin: DigitalTwinDTO;
+  cohort: CohortInsightDTO;
+  ownership: OwnershipInsightsDTO;
+  compatibility: CompatibilityResultDTO;
+  reviews: ReviewSummaryDTO;
+}
+
+export interface PurchaseAdvisorDTO {
+  userId: string;
+  ordersCount: number;
+  returnsCount: number;
+  returnRate: number;
+  riskProfile: "low" | "medium" | "high";
+  topReasons: { reason: string; count: number }[];
+  topCategories: { category: string; count: number }[];
+  recommendations: string[];
+  confidence: number;
+}
+
+export interface CartLineAssessmentDTO {
+  listingId: string;
+  itemId: string;
+  riskLevel: "low" | "medium" | "high";
+  riskScore: number;
+  duplicate: boolean;
+  wrongPurchase: boolean;
+  note?: string;
+}
+
+export interface CartAssessmentDTO {
+  lines: CartLineAssessmentDTO[];
+  confidenceMeter: number;
+  warnings: string[];
 }
 
 // ── AI-verdict challenge / dispute ──

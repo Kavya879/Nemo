@@ -52,6 +52,24 @@ export function ListingCard({ listing }: { listing: ListingDTO }) {
       </div>
       <h3 className="line-clamp-2 text-sm text-ink hover:text-linkHover">{listing.title}</h3>
       <Stars rating={rating} />
+      {listing.returnRiskLevel && (
+        <span
+          className={`w-fit rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+            listing.returnRiskLevel === "low"
+              ? "bg-success/10 text-success"
+              : listing.returnRiskLevel === "medium"
+                ? "bg-warn/10 text-warn"
+                : "bg-danger/10 text-danger"
+          }`}
+          title="AI-assessed return risk"
+        >
+          {listing.returnRiskLevel === "low"
+            ? "✓ Low return risk"
+            : listing.returnRiskLevel === "medium"
+              ? "• Medium return risk"
+              : "! High return risk"}
+        </span>
+      )}
       <div className="flex items-baseline gap-0.5">
         <span className="text-xs text-ink">₹</span>
         <span className="text-2xl font-medium text-ink">

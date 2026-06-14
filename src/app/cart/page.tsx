@@ -1,14 +1,44 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
+import { apiClient } from "@/lib/api-client";
+import type { CartAssessmentDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
 import { ProductImage } from "@/components/ProductImage";
+import { PurchaseConfidenceMeter } from "@/components/intelligence/PurchaseConfidenceMeter";
 
 export default function CartPage() {
   const router = useRouter();
   const { lines, subtotal, count, setQty, remove, clear } = useCart();
+  const [assessment, setAssessment] = useState<CartAssessmentDTO | null>(null);
+
+  // Run the return-prevention engine across the cart (duplicate / risk / confidence).
+  const lineKey = lines.map((l) => l.listingId).join(",");
+  useEffect(() => {
+    if (lines.length === 0) {
+      setAssessment(null);
+      return;
+    }
+    apiClient
+      .assessCart(
+        lines.map((l) => ({
+          listingId: l.listingId,
+          itemId: l.itemId,
+          category: l.category,
+          originalPrice: l.originalPrice,
+          title: l.title,
+        })),
+      )
+      .then(setAssessment)
+      .catch(() => setAssessment(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineKey]);
+
+  const noteFor = (listingId: string) =>
+    assessment?.lines.find((l) => l.listingId === listingId);
 
   if (lines.length === 0) {
     return (
@@ -53,6 +83,17 @@ export default function CartPage() {
                 </Link>
                 <p className="text-xs text-success">In stock · Certified Pre-Owned</p>
                 <p className="text-xs text-storm">{l.category}</p>
+                {noteFor(l.listingId)?.note && (
+                  <p
+                    className={`mt-1 text-xs font-medium ${
+                      noteFor(l.listingId)!.duplicate || noteFor(l.listingId)!.riskLevel === "high"
+                        ? "text-danger"
+                        : "text-warn"
+                    }`}
+                  >
+                    ⚠ {noteFor(l.listingId)!.note}
+                  </p>
+                )}
 
                 <div className="mt-2 flex items-center gap-4">
                   {/* Quantity stepper */}
@@ -110,6 +151,11 @@ export default function CartPage() {
           Proceed to payment
         </Button>
         <p className="mt-2 text-center text-xs text-storm">Earn Amazon Nemo Credits 🌱 after purchase</p>
+        {assessment && (
+          <div className="mt-4">
+            <PurchaseConfidenceMeter assessment={assessment} />
+          </div>
+        )}
       </aside>
     </div>
   );

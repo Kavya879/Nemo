@@ -341,9 +341,75 @@ function daysAgo(n: number): Date {
   return d;
 }
 
+// Structured specs powering the Compatibility Checker + Ownership insights.
+// Real per-SKU attributes; items without an entry fall back to category baselines.
+const SPECS_BY_ID: Record<string, Record<string, unknown>> = {
+  "demo-item-monitor": {
+    dimensions: '27-inch, 62×37×5 cm',
+    requirements: "HDMI or USB-C video output",
+    compatibleWith: ["laptop", "PC", "HDMI", "USB-C"],
+    expectedLifespanMonths: 48,
+    maintenanceCostPct: 0.02,
+  },
+  "mkt-item-powerbank": {
+    capacity: "20000mAh",
+    requirements: "USB-C or micro-USB device",
+    compatibleWith: ["phone", "USB-C", "tablet", "earbuds"],
+    expectedLifespanMonths: 30,
+    maintenanceCostPct: 0,
+  },
+  "demo-item-headphones": {
+    requirements: "Bluetooth 5.0",
+    compatibleWith: ["phone", "Bluetooth", "laptop", "tablet"],
+    expectedLifespanMonths: 24,
+    maintenanceCostPct: 0,
+  },
+  "demo-item-earbuds": {
+    requirements: "Bluetooth phone or tablet",
+    compatibleWith: ["phone", "Bluetooth", "tablet"],
+    expectedLifespanMonths: 20,
+    maintenanceCostPct: 0,
+  },
+  "demo-item-tablet": {
+    dimensions: "10-inch",
+    requirements: "Wi-Fi network",
+    compatibleWith: ["Wi-Fi", "USB-C charger"],
+    expectedLifespanMonths: 36,
+    maintenanceCostPct: 0.02,
+  },
+  "demo-item-blender": {
+    requirements: "220V power outlet",
+    capacity: "1.5L",
+    powerW: 600,
+    expectedLifespanMonths: 36,
+    maintenanceCostPct: 0.04,
+  },
+  "mkt-item-kettle": {
+    requirements: "220V power outlet",
+    capacity: "1.7L",
+    powerW: 1500,
+    expectedLifespanMonths: 36,
+    maintenanceCostPct: 0.04,
+  },
+  "mkt-item-coffee": {
+    requirements: "220V power outlet + paper filters",
+    capacity: "1.2L",
+    powerW: 900,
+    expectedLifespanMonths: 42,
+    maintenanceCostPct: 0.05,
+  },
+  "demo-item-sneakers": { sizeSystem: "UK 6–11", expectedLifespanMonths: 18, maintenanceCostPct: 0.02 },
+  "mkt-item-boots": { sizeSystem: "UK 6–12", expectedLifespanMonths: 36, maintenanceCostPct: 0.03 },
+  "demo-item-tshirt": { sizeSystem: "S/M/L/XL", expectedLifespanMonths: 24, maintenanceCostPct: 0.01 },
+  "mkt-item-jeans": { sizeSystem: "28–38 waist", expectedLifespanMonths: 36, maintenanceCostPct: 0.01 },
+  "demo-item-blocks": { ageRange: "6+", compatibleWith: ["standard building blocks"], expectedLifespanMonths: 72 },
+  "mkt-item-book": { format: "Hardcover", expectedLifespanMonths: 120, maintenanceCostPct: 0 },
+};
+
 async function seedItems() {
   for (const e of CATALOG) {
     const imageUrl = CATEGORY_IMAGE[e.category] ?? null;
+    const specs = (SPECS_BY_ID[e.id] ?? {}) as Prisma.InputJsonValue;
     const data = {
       name: e.name,
       category: e.category,
@@ -353,10 +419,11 @@ async function seedItems() {
       currentGrade: e.grade,
       status: "GRADED" as const,
       repairability: e.repairability,
+      specs,
     };
     await prisma.item.upsert({
       where: { id: e.id },
-      update: { currentGrade: e.grade, status: "GRADED", repairability: e.repairability, imageUrl },
+      update: { currentGrade: e.grade, status: "GRADED", repairability: e.repairability, imageUrl, specs },
       create: { id: e.id, ...data },
     });
   }
@@ -492,6 +559,9 @@ async function seedBuyers() {
  * the seed authoritative — no leftover test rows accumulate.
  */
 async function reset() {
+  await prisma.review.deleteMany();
+  await prisma.productView.deleteMany();
+  await prisma.wishlistItem.deleteMany();
   await prisma.returnEvent.deleteMany();
   await prisma.returnCase.deleteMany();
   await prisma.greenCredit.deleteMany();
@@ -688,6 +758,78 @@ async function seedReturnCases() {
   console.info(`✔ ${n} return cases seeded (varied grades, paths & matches)`);
 }
 
+// ── Reviews + browsing (return-prevention intelligence inputs) ────────────────
+// Reviews are seeded WITHOUT a cached sentiment (no model in the seed); the
+// review-sentiment signal falls back to the star rating, and the POST
+// /api/reviews path scores sentiment via the open-source model on write.
+const REVIEW_POOL = {
+  positive: [
+    { rating: 5, title: "Exactly as described", body: "Great quality, works perfectly. Very happy with this purchase." },
+    { rating: 5, title: "Excellent value", body: "Looks brand new and performs flawlessly. Would buy again." },
+    { rating: 4, title: "Solid buy", body: "Good condition and reliable. Minor wear but nothing that bothers me." },
+  ],
+  mixed: [
+    { rating: 3, title: "Okay overall", body: "Does the job but the condition was a little more worn than I expected." },
+    { rating: 3, title: "Decent", body: "Functional and fairly priced, though setup took longer than I'd like." },
+  ],
+  sizing: [
+    { rating: 2, title: "Runs small", body: "Sizing was off — smaller than my usual size, had to think about returning it." },
+    { rating: 2, title: "Fit mismatch", body: "The fit did not match the description. Disappointing for the price." },
+  ],
+  defect: [
+    { rating: 1, title: "Arrived with issues", body: "Noticed a defect out of the box. Not what I expected from the listing." },
+    { rating: 2, title: "Quality concern", body: "Works, but there's visible damage that wasn't obvious in the photos." },
+  ],
+};
+const REVIEW_AUTHORS = ["Asha", "Ravi", "Meera", "Karan", "Divya", "Sahil", "Neha", "Arjun"];
+
+async function seedReviews() {
+  let count = 0;
+  for (let idx = 0; idx < CATALOG.length; idx++) {
+    const e = CATALOG[idx];
+    const rows: Array<{ rating: number; title: string; body: string }> = [];
+    // Base reviews correlate with the item's verified grade.
+    if (e.grade === "A") rows.push(REVIEW_POOL.positive[0], REVIEW_POOL.positive[1], REVIEW_POOL.positive[2]);
+    else if (e.grade === "B") rows.push(REVIEW_POOL.positive[2], REVIEW_POOL.positive[0], REVIEW_POOL.mixed[0]);
+    else if (e.grade === "C") rows.push(REVIEW_POOL.mixed[0], REVIEW_POOL.mixed[1]);
+    else rows.push(REVIEW_POOL.defect[1], REVIEW_POOL.mixed[1]);
+    // Return reasons inject matching complaints (so signals are realistic).
+    const reasons = (e.returns ?? []).join(" ").toLowerCase();
+    if (reasons.includes("size")) rows.push(REVIEW_POOL.sizing[idx % 2]);
+    if (reasons.includes("defect")) rows.push(REVIEW_POOL.defect[idx % 2]);
+
+    await prisma.review.createMany({
+      data: rows.map((r, i) => ({
+        itemId: e.id,
+        userId: `buyer-${REVIEW_AUTHORS[(idx + i) % REVIEW_AUTHORS.length].toLowerCase()}`,
+        authorName: REVIEW_AUTHORS[(idx + i) % REVIEW_AUTHORS.length],
+        rating: r.rating,
+        title: r.title,
+        body: r.body,
+      })),
+    });
+    count += rows.length;
+  }
+  console.info(`✔ ${count} product reviews seeded (sentiment scored on API writes)`);
+}
+
+async function seedBrowsing() {
+  // A little browsing history + wishlist for the Demo Owner, so cohort/advisor
+  // signals have real events to read.
+  const viewed = CATALOG.slice(0, 6);
+  for (const e of viewed) {
+    await prisma.productView.create({ data: { userId: "demo-user", itemId: e.id } });
+  }
+  for (const e of CATALOG.slice(0, 3)) {
+    await prisma.wishlistItem.upsert({
+      where: { userId_itemId: { userId: "demo-user", itemId: e.id } },
+      update: {},
+      create: { userId: "demo-user", itemId: e.id },
+    });
+  }
+  console.info(`✔ browsing history + wishlist seeded`);
+}
+
 async function main() {
   console.info("Seeding Amazon Nemo database…");
   await reset();
@@ -698,6 +840,8 @@ async function main() {
   await seedReturns();
   await seedBuyers();
   await seedReturnCases();
+  await seedReviews();
+  await seedBrowsing();
   console.info("✅ Seed complete.");
 }
 

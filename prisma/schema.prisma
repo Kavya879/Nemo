@@ -155,6 +155,9 @@ model Item {
   /// Append-only ownership trail, e.g. [{ owner, from, to }].
   ownerHistory  Json        @default("[]")
   repairability Float       @default(0.5) // 0..1, how repairable this item is
+  /// Optional structured attributes (dimensions, weight, compatibility, etc.).
+  /// Drives the Product Passport + (later) the compatibility checker; empty-safe.
+  specs         Json        @default("{}")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -166,9 +169,58 @@ model Item {
   orders              Order[]
   returnCases         ReturnCase[]
   verificationResults VerificationResult[]
+  reviews             Review[]
+  productViews        ProductView[]
+  wishlistItems       WishlistItem[]
 
   @@index([category])
   @@index([status])
+}
+
+/// A customer product review — real text + a cached sentiment score (computed
+/// once at write time via the open-source sentiment model). Powers the
+/// satisfaction / return-risk signals and review summaries.
+model Review {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId    String   @default("demo-user")
+  authorName String?
+  rating    Int      // 1..5 stars
+  title     String?
+  body      String
+  /// Cached sentiment in -1..1 (negative..positive); null until scored.
+  sentiment Float?
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+}
+
+/// A browsing event — the shopper viewed a product. Feeds browsing-history and
+/// "customers like you" cohort signals.
+model ProductView {
+  id        String   @id @default(cuid())
+  userId    String   @default("demo-user")
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  listingId String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([itemId])
+}
+
+/// A product a shopper saved — per-product wishlist (distinct from the Buyer
+/// category wishlist used for second-life matching).
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String   @default("demo-user")
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, itemId])
+  @@index([userId])
 }
 
 /// A return decision case — the persisted state machine + snapshots that drive

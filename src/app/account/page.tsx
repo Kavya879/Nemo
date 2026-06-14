@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useUser } from "@/lib/user-context";
 import type { CreditTotalsDTO } from "@/types/dto";
+import { PurchaseAdvisorCard } from "@/components/intelligence/PurchaseAdvisorCard";
 
 const CARDS = [
   {
@@ -81,6 +82,9 @@ export default function AccountPage() {
           </Link>
         </div>
       </div>
+
+      {/* Personalized AI Purchase Advisor */}
+      <PurchaseAdvisorCard />
 
       {/* Account cards */}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

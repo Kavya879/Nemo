@@ -8,6 +8,11 @@ import type {
   BuyerMatchDTO,
   CategoryCountDTO,
   ChallengeDTO,
+  ProductIntelligenceDTO,
+  PurchaseAdvisorDTO,
+  CartAssessmentDTO,
+  AlternativeItemDTO,
+  ReviewDTO,
   CheckoutResultDTO,
   CreditTotalsDTO,
   CreditsResultDTO,
@@ -123,6 +128,39 @@ export const apiClient = {
   getItems: () => request<ItemDTO[]>("/api/items"),
 
   getCategories: () => request<CategoryCountDTO[]>("/api/catalog/categories"),
+
+  // ── Return-prevention intelligence ──
+  getProductIntelligence: (listingOrItemId: string, userId: string = currentUserId()) =>
+    request<ProductIntelligenceDTO>(
+      `/api/intelligence/product/${listingOrItemId}?userId=${encodeURIComponent(userId)}`,
+    ),
+  getAlternatives: (listingOrItemId: string, userId: string = currentUserId()) =>
+    request<AlternativeItemDTO[]>(
+      `/api/intelligence/alternatives/${listingOrItemId}?userId=${encodeURIComponent(userId)}`,
+    ),
+  recordView: (itemId: string, listingId?: string) =>
+    request<{ recorded: boolean }>("/api/intelligence/view", {
+      method: "POST",
+      body: JSON.stringify({ itemId, listingId, userId: currentUserId() }),
+    }),
+  getReviews: (itemId: string) =>
+    request<{ reviews: ReviewDTO[]; aggregate: { count: number; avgRating: number | null; avgSentiment: number | null; scoredCount: number } }>(
+      `/api/reviews?itemId=${encodeURIComponent(itemId)}`,
+    ),
+  addReview: (input: { itemId: string; rating: number; title?: string; body: string; authorName?: string }) =>
+    request<ReviewDTO>("/api/reviews", {
+      method: "POST",
+      body: JSON.stringify({ ...input, userId: currentUserId() }),
+    }),
+  getPurchaseAdvisor: (userId: string = currentUserId()) =>
+    request<PurchaseAdvisorDTO>(`/api/intelligence/advisor?userId=${encodeURIComponent(userId)}`),
+  assessCart: (
+    lines: Array<{ listingId: string; itemId: string; category: string; originalPrice: number; title?: string }>,
+  ) =>
+    request<CartAssessmentDTO>("/api/intelligence/cart", {
+      method: "POST",
+      body: JSON.stringify({ userId: currentUserId(), lines }),
+    }),
 
   createItem: (input: {
     name: string;

@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useCart } from "@/lib/cart";
 import { useUser } from "@/lib/user-context";
 import { apiClient, ApiError } from "@/lib/api-client";
-import type { CheckoutResultDTO } from "@/types/dto";
+import type { CheckoutResultDTO, CartAssessmentDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
+import { PurchaseConfidenceMeter } from "@/components/intelligence/PurchaseConfidenceMeter";
 
 interface Address {
   name: string;
@@ -39,6 +40,25 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [editingAddr, setEditingAddr] = useState(false);
   const [draft, setDraft] = useState<Address>(EMPTY_ADDRESS);
+  const [assessment, setAssessment] = useState<CartAssessmentDTO | null>(null);
+
+  const lineKey = lines.map((l) => l.listingId).join(",");
+  useEffect(() => {
+    if (lines.length === 0) return;
+    apiClient
+      .assessCart(
+        lines.map((l) => ({
+          listingId: l.listingId,
+          itemId: l.itemId,
+          category: l.category,
+          originalPrice: l.originalPrice,
+          title: l.title,
+        })),
+      )
+      .then(setAssessment)
+      .catch(() => setAssessment(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineKey]);
 
   useEffect(() => {
     try {
@@ -250,6 +270,11 @@ export default function CheckoutPage() {
 
       {/* Order summary */}
       <aside className="h-fit rounded bg-white p-5">
+        {assessment && (
+          <div className="mb-4">
+            <PurchaseConfidenceMeter assessment={assessment} />
+          </div>
+        )}
         <Button
           size="lg"
           className="w-full"

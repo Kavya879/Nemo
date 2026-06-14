@@ -43,6 +43,15 @@ const envSchema = z.object({
   // CLIP model for the open-source grader (auto-downloaded from the HF hub).
   CLIP_MODEL: z.string().default("Xenova/clip-vit-base-patch16"),
 
+  // Open-source NLP models for the return-prevention intelligence engine
+  // (Transformers.js, auto-downloaded from the HF hub; no keys, run in-process).
+  /// Text sentiment for review scoring (text-classification).
+  SENTIMENT_MODEL: z
+    .string()
+    .default("Xenova/distilbert-base-uncased-finetuned-sst-2-english"),
+  /// Sentence embeddings for similarity / cohort / alternatives (feature-extraction).
+  TEXT_EMBED_MODEL: z.string().default("Xenova/bge-small-en-v1.5"),
+
   // AWS Bedrock — required only when the bedrock grader is actually invoked.
   // Kept optional at startup so the app can run on the local fallback alone.
   AWS_REGION: z.string().default("us-east-1"),

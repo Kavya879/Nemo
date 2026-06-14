@@ -5,29 +5,43 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useCart, type CartLine } from "@/lib/cart";
-import type { ListingDTO } from "@/types/dto";
+import type { ListingDTO, ProductIntelligenceDTO } from "@/types/dto";
 import { ProductHealthCard } from "@/components/ProductHealthCard";
 import { ProductImage } from "@/components/ProductImage";
 import { PreventionBanner } from "@/components/PreventionBanner";
 import { GradeBadge } from "@/components/GradeBadge";
+import { ReturnRiskPanel } from "@/components/intelligence/ReturnRiskPanel";
+import { ProductPassportPanel } from "@/components/intelligence/ProductPassportPanel";
+import { DigitalTwinPanel } from "@/components/intelligence/DigitalTwinPanel";
+import { OwnershipFitPanel } from "@/components/intelligence/OwnershipFitPanel";
+import { AlternativesStrip } from "@/components/intelligence/AlternativesStrip";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 
 export function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
   const { add } = useCart();
   const [listing, setListing] = useState<ListingDTO | null>(null);
+  const [intel, setIntel] = useState<ProductIntelligenceDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addedToCart, setAddedToCart] = useState(false);
 
   function load() {
     setError(null);
     setListing(null);
+    setIntel(null);
     apiClient
       .getListing(id)
       .then(setListing)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load product"));
   }
   useEffect(load, [id]);
+
+  // Once the listing is known, load AI intelligence and record the view (browsing history).
+  useEffect(() => {
+    if (!listing) return;
+    apiClient.getProductIntelligence(listing.id).then(setIntel).catch(() => setIntel(null));
+    apiClient.recordView(listing.itemId, listing.id).catch(() => undefined);
+  }, [listing]);
 
   function toCartLine(l: ListingDTO): Omit<CartLine, "qty"> {
     return {
@@ -112,6 +126,7 @@ export function ProductDetail({ id }: { id: string }) {
             Condition shown is the AI-verified Product Health Card below.
           </p>
           <PreventionBanner category={category} />
+          {intel && <ReturnRiskPanel risk={intel.returnRisk} />}
         </div>
 
         {/* Buy box */}
@@ -147,12 +162,71 @@ export function ProductDetail({ id }: { id: string }) {
               Earn Amazon Nemo Credits 🌱 <span className="font-medium">after purchase</span>
             </p>
           </div>
+          {intel && (
+            <div className="mt-3">
+              <DigitalTwinPanel twin={intel.twin} cohort={intel.cohort} />
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-6 max-w-2xl">
+      {/* AI Product Passport */}
+      {intel && (
+        <div className="mt-6">
+          <ProductPassportPanel passport={intel.passport} />
+        </div>
+      )}
+
+      {/* Ownership & Fit (lifespan, cost/yr, regret, compatibility) */}
+      {intel && (
+        <div className="mt-6">
+          <OwnershipFitPanel ownership={intel.ownership} compatibility={intel.compatibility} />
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ProductHealthCard card={listing.healthCard} />
+
+        {/* Intelligent review summary */}
+        {intel && (
+          <div className="rounded-card border border-line bg-white p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-ink">Customer reviews</h3>
+              {intel.reviews.avgRating != null && (
+                <span className="text-sm text-link">
+                  {intel.reviews.avgRating.toFixed(1)}★ · {intel.reviews.count} review
+                  {intel.reviews.count === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+            {intel.reviews.count === 0 ? (
+              <p className="text-xs text-storm">No reviews yet for this product.</p>
+            ) : (
+              <div className="space-y-2">
+                {intel.reviews.positive && (
+                  <div className="rounded border border-success/30 bg-success/5 p-2">
+                    <div className="text-xs font-semibold text-success">
+                      👍 {intel.reviews.positive.title ?? `${intel.reviews.positive.rating}★`}
+                    </div>
+                    <p className="text-xs text-ink">{intel.reviews.positive.body}</p>
+                  </div>
+                )}
+                {intel.reviews.critical && (
+                  <div className="rounded border border-warn/30 bg-warn/5 p-2">
+                    <div className="text-xs font-semibold text-warn">
+                      👎 {intel.reviews.critical.title ?? `${intel.reviews.critical.rating}★`}
+                    </div>
+                    <p className="text-xs text-ink">{intel.reviews.critical.body}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Lower-risk alternatives (lazy) */}
+      <AlternativesStrip listingId={listing.id} />
     </div>
   );
 }
