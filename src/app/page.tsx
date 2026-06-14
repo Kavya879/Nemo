@@ -3,20 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
-import type { ListingDTO, ProductDTO } from "@/types/dto";
+import type { ListingDTO, ProductDTO, ReturnDealDTO } from "@/types/dto";
 import { ProductImage } from "@/components/ProductImage";
 import { ProductCard } from "@/components/ProductCard";
 import { ListingCard } from "@/components/ListingCard";
+import { TransitDealCard } from "@/components/TransitDealCard";
 import { useCategories } from "@/lib/use-categories";
 import { categoryIcon } from "@/lib/category-icon";
 
 export default function HomePage() {
   const [listings, setListings] = useState<ListingDTO[]>([]);
   const [products, setProducts] = useState<ProductDTO[]>([]);
+  const [transitDeals, setTransitDeals] = useState<ReturnDealDTO[]>([]);
   const { categories } = useCategories();
   useEffect(() => {
     apiClient.getListings().then(setListings).catch(() => setListings([]));
     apiClient.getProducts().then(setProducts).catch(() => setProducts([]));
+    apiClient.getReturnDeals().then(setTransitDeals).catch(() => setTransitDeals([]));
   }, []);
 
   const deals = listings.slice(0, 4);
@@ -133,6 +136,26 @@ export default function HomePage() {
           </Link>
         </article>
       </section>
+
+      {/* Return-in-Transit Deals — buy returned items early, at a growing discount */}
+      {transitDeals.length > 0 && (
+        <section className="mt-6 rounded-card border border-link/30 bg-link/5 p-4">
+          <div className="mb-3 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-ink">🚚 Return-in-Transit Deals</h2>
+              <p className="text-sm text-storm">
+                Items on their way back — grab them early before they reach the warehouse. The
+                discount grows for every day they stay in the pipeline.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {transitDeals.slice(0, 8).map((d) => (
+              <TransitDealCard key={d.returnCaseId} deal={d} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Section 1 — Explore Brand New Products (standard inventory) */}
       {products.length > 0 && (

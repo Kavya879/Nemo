@@ -45,6 +45,18 @@ export default function OrdersPage() {
       <div className="mt-4 space-y-3">
         {orders?.map((o) => {
           const it = o.order.item;
+          const prod = o.order.product;
+          const isResold = !!it;
+          // Unified display fields for either ecosystem.
+          const display = it
+            ? { name: it.name, brand: it.brand, category: it.category, imageUrl: it.imageUrl, price: it.originalPrice }
+            : {
+                name: prod?.name ?? "Product",
+                brand: prod?.brand ?? null,
+                category: prod?.category ?? "",
+                imageUrl: prod?.imageUrl ?? null,
+                price: prod?.price ?? 0,
+              };
           const s = o.order.status;
           const notDelivered = s === "PLACED" || s === "SHIPPED";
           return (
@@ -73,18 +85,22 @@ export default function OrdersPage() {
               </div>
               <div className="flex items-center gap-4 p-4">
                 <ProductImage
-                  src={it.imageUrl}
-                  category={it.category}
-                  alt={it.name}
+                  src={display.imageUrl}
+                  category={display.category}
+                  alt={display.name}
                   className="h-20 w-20 shrink-0 rounded"
                 />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-ink">{it.name}</h3>
+                  <h3 className="font-semibold text-ink">{display.name}</h3>
                   <p className="text-xs text-storm">
-                    {it.brand ? `${it.brand} · ` : ""}
-                    {it.category} · ₹{it.originalPrice.toLocaleString("en-IN")}
+                    {display.brand ? `${display.brand} · ` : ""}
+                    {display.category} · ₹{display.price.toLocaleString("en-IN")}
+                    {!isResold && o.order.quantity > 1 ? ` · Qty ${o.order.quantity}` : ""}
                   </p>
-                  <div className="mt-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge tone={isResold ? "neutral" : "info"}>
+                      {isResold ? "Second-life" : "Brand New"}
+                    </Badge>
                     {s === "CANCELLED" ? (
                       <Badge tone="danger">Order cancelled</Badge>
                     ) : s === "RETURNED" ? (
@@ -93,6 +109,8 @@ export default function OrdersPage() {
                       <Badge tone="warn">Return in progress</Badge>
                     ) : notDelivered ? (
                       <Badge tone="info">{s === "SHIPPED" ? "Shipped" : "Order placed"}</Badge>
+                    ) : !isResold ? (
+                      <Badge tone="success">Delivered</Badge>
                     ) : o.returnEligible ? (
                       <Badge tone="success">Returnable · {o.returnDaysLeft} day(s) left</Badge>
                     ) : (
@@ -112,8 +130,8 @@ export default function OrdersPage() {
                     </button>
                   )}
 
-                  {/* Return in progress → cancel the return */}
-                  {s === "RETURN_REQUESTED" && (
+                  {/* Return in progress → cancel the return (resold only) */}
+                  {isResold && it && s === "RETURN_REQUESTED" && (
                     <button
                       onClick={() => run(o.order.id, () => apiClient.cancelReturn(it.id), "Could not cancel return")}
                       disabled={busyId === o.order.id}
@@ -123,8 +141,8 @@ export default function OrdersPage() {
                     </button>
                   )}
 
-                  {/* Delivered + within window → return */}
-                  {s === "DELIVERED" && o.returnEligible && (
+                  {/* Delivered + within window → return (resold only) */}
+                  {isResold && it && s === "DELIVERED" && o.returnEligible && (
                     <Link
                       href={`/return?itemId=${it.id}`}
                       className="rounded-full bg-amzYellow px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzYellowDark"
@@ -133,8 +151,8 @@ export default function OrdersPage() {
                     </Link>
                   )}
 
-                  {/* Delivered + window closed → resell (#12b, #18) */}
-                  {s === "DELIVERED" && !o.returnEligible && (
+                  {/* Delivered + window closed → resell (resold only, #12b, #18) */}
+                  {isResold && it && s === "DELIVERED" && !o.returnEligible && (
                     <>
                       <span className="rounded-full bg-mist px-4 py-2 text-center text-xs text-storm">
                         Return window closed

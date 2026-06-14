@@ -34,6 +34,13 @@ function SellInner() {
   const [created, setCreated] = useState<ListingDTO | null>(null);
   const [aiGrade, setAiGrade] = useState<GradeResultDTO | null>(null);
   const [verification, setVerification] = useState<VerificationAssessmentDTO | null>(null);
+  // Verification gate: the item id is kept stable across retries; we block the
+  // listing when the AI can't verify, count the failures, and after 3 offer a
+  // human (admin) verification escalation.
+  const [itemIdState, setItemIdState] = useState<string | null>(resellItemId);
+  const [verifyFails, setVerifyFails] = useState(0);
+  const [gateBlocked, setGateBlocked] = useState(false);
+  const [adminRequested, setAdminRequested] = useState(false);
 
   // Resell flow: prefill from the owned item + enforce "only after return window closes".
   useEffect(() => {
@@ -53,7 +60,7 @@ function SellInner() {
         setLocked(true);
 
         // #18: cannot resell while the order is still within its return window.
-        const order = orders.find((o) => o.order.item.id === resellItemId);
+        const order = orders.find((o) => o.order.item?.id === resellItemId);
         if (order && order.returnEligible) {
           setBlockedReason(
             `This item is still within its return window (${order.returnDaysLeft} day(s) left). You can resell it only after the return period is over — return it for a refund instead, or wait for the window to close.`,
@@ -89,19 +96,21 @@ function SellInner() {
       const primaryPhoto = photos.find((p) => p.role === "front") ?? photos[0];
       const uploadedImageUrl = primaryPhoto?.preview;
 
-      // Reselling an owned item → list the existing item; otherwise create a new one.
+      // Reselling an owned item → list the existing item; otherwise create a new
+      // one. Reuse the same item across retries so failures accumulate on it.
       setBusyLabel("Preparing item…");
-      const itemId = resellItemId
-        ? resellItemId
-        : (
-            await apiClient.createItem({
-              name: name.trim(),
-              category,
-              brand: brand.trim() || undefined,
-              originalPrice: mrp,
-              imageUrl: uploadedImageUrl,
-            })
-          ).id;
+      const itemId =
+        itemIdState ??
+        (
+          await apiClient.createItem({
+            name: name.trim(),
+            category,
+            brand: brand.trim() || undefined,
+            originalPrice: mrp,
+            imageUrl: uploadedImageUrl,
+          })
+        ).id;
+      setItemIdState(itemId);
 
       // #19: AI grades the uploaded photos — the listing condition + Product
       // Health Card come from the grading result, not a self-declared value.
@@ -112,6 +121,17 @@ function SellInner() {
       );
       setAiGrade(graded);
       setVerification(ver);
+
+      // The verification gate must pass before we publish the listing. If the AI
+      // can't confirm the item (or flags fraud), block listing and let the seller
+      // retry; after 3 failures we offer human (admin) verification.
+      const proceed = !ver || ver.recommendation === "PROCEED";
+      if (!proceed) {
+        setVerifyFails((n) => n + 1);
+        setGateBlocked(true);
+        return;
+      }
+      setGateBlocked(false);
 
       setBusyLabel("Creating your listing…");
       const listing = await apiClient.createListing({
@@ -135,7 +155,52 @@ function SellInner() {
     }
   }
 
+  async function requestSellVerify() {
+    if (!itemIdState) return;
+    setSubmitting(true);
+    setError(null);
+    setBusyLabel("Sending to the Operations review team…");
+    try {
+      await apiClient.requestSellVerification(itemIdState, {
+        reason: "AI flagged a genuine item as fraud",
+        comment: `Automated verification failed ${verifyFails} time(s), but the item is genuine. Requesting a human review of the photos.`,
+        intendedPrice: ask,
+        intendedPricePct: Number((ask / mrp).toFixed(3)),
+      });
+      setAdminRequested(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send the request");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (prefilling) return <div className="p-8"><LoadingState label="Loading item…" /></div>;
+
+  // Escalation sent → pending admin review.
+  if (adminRequested) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10 text-center">
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-link/10 text-3xl">
+          🧑‍⚖️
+        </div>
+        <h1 className="text-2xl font-bold">Sent for human verification</h1>
+        <p className="mt-2 text-sm text-storm">
+          Our AI couldn&apos;t auto-verify your item, so it&apos;s now with the Amazon Nemo
+          Operations team. If they confirm it&apos;s genuine, your listing goes live automatically —
+          no further action needed.
+        </p>
+        <div className="mt-5 flex justify-center gap-3">
+          <Link href="/orders">
+            <Button size="lg" variant="secondary">Back to Your Orders</Button>
+          </Link>
+          <Link href="/sell">
+            <Button size="lg">List another item</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (created) {
     return (
@@ -187,6 +252,39 @@ function SellInner() {
           <Link href="/orders" className="font-medium underline">
             Back to Your Orders
           </Link>
+        </div>
+      )}
+
+      {/* Verification gate failed → retry, then escalate to admin after 3 tries */}
+      {gateBlocked && verification && (
+        <div className="mt-4 rounded border border-warn/40 bg-warn/10 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚠️</span>
+            <h2 className="font-bold text-ink">We couldn&apos;t auto-verify this item</h2>
+          </div>
+          <p className="mt-1 text-sm text-storm">
+            {verification.recommendation === "MANUAL_REVIEW"
+              ? `Our AI flagged a possible fraud/mismatch (fraud risk ${Math.round(
+                  verification.fraudRiskScore * 100,
+                )}%).`
+              : `Our AI couldn't confirm this matches the product (match ${Math.round(
+                  verification.productMatchConfidence * 100,
+                )}%).`}{" "}
+            Attempt {verifyFails} of 3 — add clearer front, back, side &amp; packaging photos and
+            submit again.
+          </p>
+          {verifyFails >= 3 && (
+            <div className="mt-3 border-t border-warn/30 pt-3">
+              <p className="text-sm text-ink">
+                If your item is genuine, request a human verification — the Amazon Nemo Operations
+                team will review your photos and, if they accept, your listing goes live
+                automatically.
+              </p>
+              <Button className="mt-2" disabled={submitting} onClick={requestSellVerify}>
+                Request admin verification
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

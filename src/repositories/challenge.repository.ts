@@ -12,8 +12,18 @@ import { prisma } from "@/lib/db";
 export type ChallengeWithRelations = Challenge & {
   evidence: ChallengeEvidence[];
   events: ChallengeEvent[];
-  returnCase: ReturnCase & { item: Item };
+  /** Always present — every challenge links to an item. */
+  item: Item;
+  /** Present for return-flow challenges; null for Sell-flow verification escalations. */
+  returnCase: (ReturnCase & { item: Item }) | null;
 };
+
+const INCLUDE = {
+  evidence: { orderBy: { createdAt: "asc" } },
+  events: { orderBy: { createdAt: "asc" } },
+  item: true,
+  returnCase: { include: { item: true } },
+} as const;
 
 /**
  * Challenge repository — data access for AI-verdict disputes and their
@@ -38,14 +48,7 @@ export const challengeRepository = {
   },
 
   async findById(id: string): Promise<ChallengeWithRelations | null> {
-    return prisma.challenge.findUnique({
-      where: { id },
-      include: {
-        evidence: { orderBy: { createdAt: "asc" } },
-        events: { orderBy: { createdAt: "asc" } },
-        returnCase: { include: { item: true } },
-      },
-    });
+    return prisma.challenge.findUnique({ where: { id }, include: INCLUDE });
   },
 
   /** Open challenge for a given return case, if any (one active dispute at a time). */
@@ -59,14 +62,22 @@ export const challengeRepository = {
     });
   },
 
+  /** Open verification escalation for an item, if any (prevents duplicates). */
+  async findOpenVerificationForItem(itemId: string): Promise<Challenge | null> {
+    return prisma.challenge.findFirst({
+      where: {
+        itemId,
+        kind: { in: ["RETURN_VERIFICATION", "SELL_VERIFICATION"] },
+        status: { in: ["OPEN", "UNDER_REVIEW", "NEEDS_MORE_INFO"] },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
   async listForUser(userId: string): Promise<ChallengeWithRelations[]> {
     return prisma.challenge.findMany({
       where: { openedByUserId: userId },
-      include: {
-        evidence: { orderBy: { createdAt: "asc" } },
-        events: { orderBy: { createdAt: "asc" } },
-        returnCase: { include: { item: true } },
-      },
+      include: INCLUDE,
       orderBy: { createdAt: "desc" },
     });
   },
@@ -74,11 +85,7 @@ export const challengeRepository = {
   /** Ops view: every challenge (all users), newest first. */
   async listAll(limit = 200): Promise<ChallengeWithRelations[]> {
     return prisma.challenge.findMany({
-      include: {
-        evidence: { orderBy: { createdAt: "asc" } },
-        events: { orderBy: { createdAt: "asc" } },
-        returnCase: { include: { item: true } },
-      },
+      include: INCLUDE,
       orderBy: { createdAt: "desc" },
       take: limit,
     });

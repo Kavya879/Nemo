@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
-import { SiteFooter } from "@/components/SiteFooter";
+import { AppShell } from "@/components/AppShell";
 import { CartProvider } from "@/lib/cart";
 import { UserProvider } from "@/lib/user-context";
 
@@ -21,9 +20,7 @@ export default function RootLayout({
       <body id="top" className="min-h-screen bg-mist text-ink antialiased">
         <UserProvider>
           <CartProvider>
-            <Navbar />
-            <main className="min-h-[calc(100vh-6rem)]">{children}</main>
-            <SiteFooter />
+            <AppShell>{children}</AppShell>
           </CartProvider>
         </UserProvider>
       </body>

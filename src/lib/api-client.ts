@@ -22,6 +22,7 @@ import type {
   ItemDTO,
   ListingDTO,
   ProductDTO,
+  ReturnDealDTO,
   MatchResultDTO,
   PreventionResultDTO,
   PriceResultDTO,
@@ -288,6 +289,31 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify({ action: "resolve", reviewer: getCurrentUser().name, ...input }),
     }),
+  /** Accept/reject a verification escalation (return or sell). */
+  adminDecideChallenge: (id: string, input: { decision: "ACCEPT" | "REJECT"; reasoning: string }) =>
+    request<ChallengeDTO>(`/api/admin/challenges/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ action: "decide", reviewer: getCurrentUser().name, ...input }),
+    }),
+
+  // ── Request human (admin) verification after repeated AI gate failures ──
+  requestReturnVerification: (caseId: string, input: { reason: string; comment: string }) => {
+    const u = getCurrentUser();
+    return request<ChallengeDTO>(`/api/return-cases/${caseId}/request-verification`, {
+      method: "POST",
+      body: JSON.stringify({ ...input, userId: u.id, userName: u.name }),
+    });
+  },
+  requestSellVerification: (
+    itemId: string,
+    input: { reason: string; comment: string; intendedPrice: number; intendedPricePct: number },
+  ) => {
+    const u = getCurrentUser();
+    return request<ChallengeDTO>(`/api/items/${itemId}/request-verification`, {
+      method: "POST",
+      body: JSON.stringify({ ...input, userId: u.id, userName: u.name }),
+    });
+  },
 
   // ── Admin console ──
   adminCases: () => request<AdminCaseRowDTO[]>("/api/admin/return-cases"),
@@ -318,10 +344,11 @@ export const apiClient = {
 
   checkout: (
     lines: Array<{
-      kind: "NEW" | "RESOLD";
+      kind: "NEW" | "RESOLD" | "TRANSIT";
       listingId?: string;
       itemId?: string;
       productId?: string;
+      returnCaseId?: string;
       category: string;
       originalPrice: number;
       qty: number;
@@ -390,6 +417,9 @@ export const apiClient = {
   getProducts: () => request<ProductDTO[]>("/api/products"),
 
   getProduct: (id: string) => request<ProductDTO>(`/api/products/${id}`),
+
+  // ── Return-in-Transit deals (early sale from the return pipeline) ──
+  getReturnDeals: () => request<ReturnDealDTO[]>("/api/return-deals"),
 
   match: (category: string, lat: number, lng: number, radiusKm?: number) => {
     const q = new URLSearchParams({

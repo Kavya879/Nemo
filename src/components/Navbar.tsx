@@ -42,6 +42,36 @@ export function Navbar() {
     router.push(`/products${term ? `?q=${encodeURIComponent(term)}` : ""}`);
   }
 
+  // Admins get a focused, console-only header — no storefront search, no
+  // departments, no cart. Just the console and a way to switch accounts.
+  if (isAdmin(user)) {
+    return (
+      <header className="flex w-full items-center gap-2 bg-squid px-3 py-2 text-white">
+        <Link
+          href="/admin"
+          className="flex shrink-0 items-center gap-1 rounded border border-transparent px-2 py-1 hover:border-white"
+        >
+          <Logo tone="dark" size="md" />
+        </Link>
+        <span className="ml-1 rounded bg-ember/90 px-2 py-0.5 text-xs font-bold text-squid">
+          ⚡ Operations Console
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="hidden text-sm sm:block">
+            Signed in as <span className="font-bold">{user.name}</span>
+          </span>
+          <Link
+            href="/login"
+            className="rounded border border-transparent px-2 py-1 text-sm font-bold leading-tight hover:border-white"
+            title="Switch account"
+          >
+            Switch account
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="w-full">
       {/* Top bar */}

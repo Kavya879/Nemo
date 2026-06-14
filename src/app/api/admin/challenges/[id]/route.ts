@@ -35,6 +35,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
         }),
       );
     }
+    if (body.action === "decide") {
+      return ok(
+        await challengeService.decideVerification({
+          challengeId: params.id,
+          reviewer: body.reviewer,
+          decision: body.decision,
+          reasoning: body.reasoning,
+        }),
+      );
+    }
     return ok(
       await challengeService.resolve({
         challengeId: params.id,

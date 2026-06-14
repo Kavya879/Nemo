@@ -6,7 +6,14 @@ import {
 } from "@/repositories/challenge.repository";
 import { returnCaseRepository } from "@/repositories/return-case.repository";
 import { gradeRepository } from "@/repositories/grade.repository";
+import { itemRepository } from "@/repositories/item.repository";
 import { verificationRepository } from "@/repositories/verification.repository";
+import { listingService } from "@/services/listing/listing.service";
+import { returnWorkflowService } from "@/services/return-workflow/return-workflow.service";
+import type { DetectedFlaw } from "@/types";
+
+/** Verification-escalation kinds (distinct from grade disputes). */
+export type VerificationKind = "RETURN_VERIFICATION" | "SELL_VERIFICATION";
 
 /**
  * Challenge service — orchestrates the AI-verdict dispute lifecycle:
@@ -117,7 +124,8 @@ export function createChallengeService() {
       const created = await challengeRepository.create(
         {
           returnCase: { connect: { id: rc.id } },
-          itemId: rc.itemId,
+          item: { connect: { id: rc.itemId } },
+          kind: "GRADE_DISPUTE",
           openedByUserId: input.userId,
           openedByName: input.userName ?? null,
           status: "OPEN",
@@ -242,7 +250,7 @@ export function createChallengeService() {
       } as const;
 
       // Write the revised grade back onto the return case + its audit trail.
-      if (changesGrade && input.revisedGrade) {
+      if (changesGrade && input.revisedGrade && c.returnCaseId) {
         const rc = await returnCaseRepository.findById(c.returnCaseId);
         if (rc) {
           await returnCaseRepository.transition(rc.id, {
@@ -278,6 +286,181 @@ export function createChallengeService() {
           resolvedAt: new Date(),
         },
         data: { action: input.action, revisedGrade: input.revisedGrade } as Prisma.InputJsonValue,
+      });
+    },
+
+    /**
+     * Open a VERIFICATION escalation — used when the AI verification gate keeps
+     * failing (return flow) or flags fraud on a genuine item (Sell flow) after
+     * repeated tries. Unlike a grade dispute, there may be no return case (Sell
+     * flow) and no grade is required; the reviewer simply accepts or rejects.
+     */
+    async openVerification(input: {
+      itemId: string;
+      returnCaseId?: string | null;
+      kind: VerificationKind;
+      reason: string;
+      comment: string;
+      userId: string;
+      userName?: string;
+      evidence?: EvidenceInput[];
+      /** Sell flow: the seller's intended listing price (used to list on accept). */
+      intendedPrice?: number;
+      intendedPricePct?: number;
+    }): Promise<ChallengeWithRelations> {
+      const item = await itemRepository.findById(input.itemId);
+      if (!item) throw new NotFoundError(`Item ${input.itemId} not found.`);
+      const existing = await challengeRepository.findOpenVerificationForItem(input.itemId);
+      if (existing) {
+        throw new ConflictError("There's already an open verification request for this item.");
+      }
+      if (!input.comment.trim()) {
+        throw new ValidationError("Please add a note for the reviewer.");
+      }
+
+      const [grade, verification] = await Promise.all([
+        gradeRepository.findLatestForItem(input.itemId),
+        verificationRepository.findLatestForItem(input.itemId),
+      ]);
+      const snapshot = {
+        grade: grade?.grade ?? null,
+        gradeConfidence: grade?.confidence ?? null,
+        productMatchConfidence: verification?.productMatchConfidence ?? null,
+        fraudRiskScore: verification?.fraudRiskScore ?? null,
+        flaws: grade?.flaws ?? [],
+        gradeSummary: grade?.summary ?? null,
+        gradedBy: grade?.gradedBy ?? null,
+        verification: verification
+          ? {
+              productMatchConfidence: verification.productMatchConfidence,
+              fraudRiskScore: verification.fraudRiskScore,
+              attributes: verification.attributes,
+              deviations: verification.deviations,
+              recommendation: verification.recommendation,
+              verifiedBy: verification.verifiedBy,
+            }
+          : null,
+        intendedPrice: input.intendedPrice ?? null,
+        intendedPricePct: input.intendedPricePct ?? null,
+        capturedAt: new Date().toISOString(),
+      };
+
+      const evidence = (input.evidence ?? []).map((e) => ({
+        data: e.data,
+        mimeType: e.mimeType ?? "image/jpeg",
+        role: e.role ?? "other",
+        note: e.note ?? null,
+        addedBy: "seller",
+      }));
+
+      const created = await challengeRepository.create(
+        {
+          ...(input.returnCaseId ? { returnCase: { connect: { id: input.returnCaseId } } } : {}),
+          item: { connect: { id: input.itemId } },
+          kind: input.kind,
+          openedByUserId: input.userId,
+          openedByName: input.userName ?? null,
+          status: "OPEN",
+          reason: input.reason,
+          sellerComment: input.comment.trim(),
+          snapshot: snapshot as unknown as Prisma.InputJsonValue,
+          assignedTo: DEFAULT_REVIEW_QUEUE,
+        },
+        evidence,
+      );
+
+      const label = input.kind === "SELL_VERIFICATION" ? "Sell listing" : "Return";
+      return challengeRepository.transition(created.id, {
+        status: "OPEN",
+        actor: "seller",
+        message: `${label} verification requested after repeated AI gate failures. Routed to ${DEFAULT_REVIEW_QUEUE}. Reason: "${input.reason}". ${evidence.length} evidence file(s).`,
+        data: { kind: input.kind } as Prisma.InputJsonValue,
+      });
+    },
+
+    /**
+     * Reviewer ACCEPTS (item is genuine) or REJECTS a verification escalation.
+     * ACCEPT proceeds the underlying flow (return → grade + analyze; sell → list
+     * the product); REJECT denies it. This is the accept/reject the ops team uses.
+     */
+    async decideVerification(input: {
+      challengeId: string;
+      reviewer: string;
+      decision: "ACCEPT" | "REJECT";
+      reasoning: string;
+    }): Promise<ChallengeWithRelations> {
+      const c = await load(input.challengeId);
+      if (c.status.startsWith("RESOLVED") || c.status === "REJECTED") {
+        throw new ConflictError("This request is already resolved.");
+      }
+      if (c.kind === "GRADE_DISPUTE") {
+        throw new ValidationError("Grade disputes are adjudicated via resolve, not accept/reject.");
+      }
+      if (!input.reasoning.trim()) {
+        throw new ValidationError("A decision reasoning is required for the audit trail.");
+      }
+
+      if (input.decision === "ACCEPT") {
+        if (c.kind === "RETURN_VERIFICATION" && c.returnCaseId) {
+          await returnWorkflowService.adminApproveVerification({
+            caseId: c.returnCaseId,
+            reviewer: input.reviewer,
+          });
+        } else if (c.kind === "SELL_VERIFICATION") {
+          const snap = c.snapshot as Record<string, unknown>;
+          const grade = (snap.grade as Grade | null) ?? null;
+          const price = typeof snap.intendedPrice === "number" ? snap.intendedPrice : null;
+          const pricePct = typeof snap.intendedPricePct === "number" ? snap.intendedPricePct : null;
+          if (!grade) throw new ConflictError("No AI grade on file — cannot list this item.");
+          if (price == null || pricePct == null) {
+            throw new ConflictError("No intended price was captured for this listing.");
+          }
+          await listingService.create({
+            itemId: c.itemId,
+            grade,
+            confidence: typeof snap.gradeConfidence === "number" ? snap.gradeConfidence : 0.5,
+            flaws: (snap.flaws as DetectedFlaw[] | undefined) ?? [],
+            price,
+            pricePct,
+            history: [
+              "Listed by seller on Amazon Nemo",
+              `Verified by Amazon Nemo Operations (${input.reviewer})`,
+            ],
+          });
+        }
+        return challengeRepository.transition(c.id, {
+          status: "RESOLVED_OVERRIDDEN",
+          actor: input.reviewer,
+          message: `Verification ACCEPTED by ${input.reviewer} — item confirmed genuine. ${input.reasoning.trim()}`,
+          patch: {
+            resolution: "OVERRIDE",
+            resolutionReasoning: input.reasoning.trim(),
+            resolvedByName: input.reviewer,
+            resolvedAt: new Date(),
+          },
+          data: { decision: "ACCEPT" } as Prisma.InputJsonValue,
+        });
+      }
+
+      // REJECT
+      if (c.kind === "RETURN_VERIFICATION" && c.returnCaseId) {
+        await returnWorkflowService.adminRejectVerification({
+          caseId: c.returnCaseId,
+          reason: input.reasoning.trim(),
+          reviewer: input.reviewer,
+        });
+      }
+      return challengeRepository.transition(c.id, {
+        status: "REJECTED",
+        actor: input.reviewer,
+        message: `Verification REJECTED by ${input.reviewer} — could not confirm the item. ${input.reasoning.trim()}`,
+        patch: {
+          resolution: "REJECT",
+          resolutionReasoning: input.reasoning.trim(),
+          resolvedByName: input.reviewer,
+          resolvedAt: new Date(),
+        },
+        data: { decision: "REJECT" } as Prisma.InputJsonValue,
       });
     },
   };

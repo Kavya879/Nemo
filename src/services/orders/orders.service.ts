@@ -1,4 +1,4 @@
-import type { Item, Order } from "@prisma/client";
+import type { Item, Order, Product } from "@prisma/client";
 import { configRepository } from "@/repositories/config.repository";
 import { orderRepository } from "@/repositories/order.repository";
 import { listingRepository } from "@/repositories/listing.repository";
@@ -15,7 +15,7 @@ import { ConflictError, NotFoundError } from "@/lib/errors";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface EligibleOrder {
-  order: Order & { item: Item };
+  order: Order & { item: Item | null; product: Product | null };
   returnEligible: boolean;
   returnDaysLeft: number;
   returnWindowDays: number;
@@ -59,9 +59,20 @@ export function createOrdersService(now: () => number = () => Date.now()) {
   return {
     async listForUser(userId = "demo-user"): Promise<EligibleOrder[]> {
       const config = await configRepository.getRules();
-      const orders = await orderRepository.listForUser(userId);
+      const orders = await orderRepository.listAllForUser(userId);
       const t = now();
       return orders.map((order) => {
+        // Brand-new product orders aren't part of the return flow — they're just
+        // cancellable while not yet delivered (which restores stock).
+        if (order.productId) {
+          return {
+            order,
+            returnEligible: false,
+            returnDaysLeft: 0,
+            returnWindowDays: config.returnWindowDays,
+            reasonIfNot: "Brand-new product — not returnable",
+          };
+        }
         const e = computeEligibility(
           order.deliveredAt,
           order.status,

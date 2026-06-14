@@ -60,6 +60,7 @@ export function ReturnWorkflow() {
   const [rejectReason, setRejectReason] = useState("");
   const [showReject, setShowReject] = useState(false);
   const [noBuyerYet, setNoBuyerYet] = useState(false);
+  const [adminRequested, setAdminRequested] = useState(false);
 
   useEffect(() => {
     apiClient.getOrders().then(setOrders).catch(() => undefined);
@@ -69,8 +70,8 @@ export function ReturnWorkflow() {
   useEffect(() => {
     const itemId = search.get("itemId");
     if (!itemId || selected || orders.length === 0) return;
-    const match = orders.find((o) => o.order.item.id === itemId && o.returnEligible);
-    if (match) setSelected(match.order.item);
+    const match = orders.find((o) => o.order.item?.id === itemId && o.returnEligible);
+    if (match?.order.item) setSelected(match.order.item);
   }, [orders, search, selected]);
 
   const describe = (e: unknown) =>
@@ -149,6 +150,37 @@ export function ReturnWorkflow() {
     }
   }
 
+  // After repeated AI gate failures, escalate to a human (admin) verification.
+  async function requestAdminVerify() {
+    if (!rc) return;
+    setError(null);
+    setBusy(true);
+    setBusyLabel("Sending to the Operations review team…");
+    try {
+      await apiClient.requestReturnVerification(rc.id, {
+        reason:
+          rc.status === "MANUAL_REVIEW"
+            ? "AI flagged a potential fraud/mismatch"
+            : "AI could not confirm the product match",
+        comment: `Automated verification failed ${rc.verificationAttempts} time(s). Requesting a human review of the submitted photos.`,
+      });
+      setAdminRequested(true);
+    } catch (e) {
+      setError(describe(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshCase() {
+    if (!rc) return;
+    try {
+      setRc(await apiClient.getReturnCase(rc.id));
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function searchBuyer() {
     if (!rc) return;
     setError(null);
@@ -177,8 +209,10 @@ export function ReturnWorkflow() {
 
         {!selected ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {orders.map((o) => {
-              const it = o.order.item;
+            {orders
+              .filter((o) => o.order.item)
+              .map((o) => {
+              const it = o.order.item!;
               return (
                 <button
                   key={o.order.id}
@@ -340,6 +374,36 @@ export function ReturnWorkflow() {
               grade is assigned. You&apos;ll be notified when the review is complete — you can track
               progress in the audit trail below.
             </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Escalation: AI gate failed repeatedly → offer human (admin) verification */}
+      {(needsEvidence || inManualReview) && rc.verificationAttempts >= 3 && (
+        <Card className="mt-4 border-link/40">
+          <CardBody className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🧑‍⚖️</span>
+              <h2 className="font-bold">Still can&apos;t verify automatically?</h2>
+            </div>
+            <p className="text-sm text-storm">
+              Our AI couldn&apos;t confirm this item after {rc.verificationAttempts} attempts. If
+              it&apos;s genuine, request a human verification — the Amazon Nemo Operations team will
+              review your submitted photos and accept or reject the request.
+            </p>
+            {adminRequested ? (
+              <div className="rounded bg-link/10 p-2 text-sm text-link">
+                ✅ Sent to the Operations review team. You&apos;ll see the outcome here once they
+                accept or reject.{" "}
+                <button onClick={refreshCase} className="font-medium underline">
+                  Check status
+                </button>
+              </div>
+            ) : (
+              <Button disabled={busy} onClick={requestAdminVerify}>
+                Request admin verification
+              </Button>
+            )}
           </CardBody>
         </Card>
       )}

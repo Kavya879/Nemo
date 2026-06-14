@@ -104,6 +104,7 @@ export default function CheckoutPage() {
           listingId: l.listingId,
           itemId: l.itemId,
           productId: l.productId,
+          returnCaseId: l.returnCaseId,
           category: l.category,
           originalPrice: l.originalPrice,
           qty: l.qty,

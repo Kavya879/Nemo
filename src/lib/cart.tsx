@@ -22,14 +22,16 @@ import {
  */
 
 export interface CartLine {
-  /** Stable identity: listingId for RESOLD, productId for NEW. */
+  /** Stable identity: listingId (RESOLD), productId (NEW), returnCaseId (TRANSIT). */
   key: string;
-  kind: "NEW" | "RESOLD";
-  /** RESOLD identifiers. */
+  kind: "NEW" | "RESOLD" | "TRANSIT";
+  /** RESOLD / TRANSIT identifiers. */
   listingId?: string;
   itemId?: string;
   /** NEW identifier. */
   productId?: string;
+  /** TRANSIT identifier (the return case being bought early). */
+  returnCaseId?: string;
   title: string;
   price: number;
   category: string;

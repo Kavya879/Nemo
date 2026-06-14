@@ -97,6 +97,22 @@ export interface ItemDTO {
   repairability: number;
 }
 
+/** A Return-in-Transit deal — an item sold early from the return pipeline. */
+export interface ReturnDealDTO {
+  returnCaseId: string;
+  itemId: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  imageUrl: string | null;
+  originalPrice: number;
+  discountPct: number; // 0..1
+  discountedPrice: number;
+  daysInPipeline: number;
+  estimatedArrival: string; // ISO date
+  badge: "In Return Pipeline" | "Arriving Soon" | "Smart Deal";
+}
+
 export type StockStatusDTO = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
 
 /** A brand-new catalog product (standard inventory ecosystem). */
@@ -180,15 +196,30 @@ export interface RedemptionDTO {
   kind: "voucher" | "perk" | "donation";
 }
 
+/** A brand-new product as embedded in an order line. */
+export interface OrderProductDTO {
+  id: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  price: number;
+  imageUrl: string | null;
+}
+
 export interface EligibleOrderDTO {
   order: {
     id: string;
-    itemId: string;
+    itemId: string | null;
+    productId: string | null;
+    quantity: number;
     userId: string;
     orderedAt: string;
     deliveredAt: string | null;
     status: string;
-    item: ItemDTO;
+    /** Set for resold (second-life) orders. */
+    item: ItemDTO | null;
+    /** Set for brand-new product orders. */
+    product: OrderProductDTO | null;
   };
   returnEligible: boolean;
   returnDaysLeft: number;
@@ -382,6 +413,9 @@ export interface ChallengeSnapshotDTO {
     recommendation: string;
     verifiedBy: string;
   } | null;
+  /** Sell-flow verification only: the seller's intended listing price. */
+  intendedPrice?: number | null;
+  intendedPricePct?: number | null;
   capturedAt: string;
 }
 
@@ -406,8 +440,10 @@ export interface ChallengeEventDTO {
 
 export interface ChallengeDTO {
   id: string;
-  returnCaseId: string;
+  returnCaseId: string | null;
   itemId: string;
+  /** "GRADE_DISPUTE" | "RETURN_VERIFICATION" | "SELL_VERIFICATION". */
+  kind: string;
   openedByUserId: string;
   openedByName: string | null;
   status: ChallengeStatusDTO;
@@ -424,13 +460,16 @@ export interface ChallengeDTO {
   updatedAt: string;
   evidence: ChallengeEvidenceDTO[];
   events: ChallengeEventDTO[];
+  /** Always present — every challenge links to an item. */
+  item: ItemDTO;
+  /** Present for return-flow challenges; null for Sell-flow escalations. */
   returnCase: {
     id: string;
     status: string;
     reason: string;
     grade: Grade | null;
     item: ItemDTO;
-  };
+  } | null;
 }
 
 // ── Admin console ──
@@ -610,6 +649,7 @@ export interface ReturnCaseDTO {
   decision: "FEASIBLE" | "NOT_FEASIBLE" | null;
   grade: Grade | null;
   gradeConfidence: number | null;
+  verificationAttempts: number;
   pickupLat: number | null;
   pickupLng: number | null;
   returnPhotos: { data: string; mimeType: string; role: string }[];

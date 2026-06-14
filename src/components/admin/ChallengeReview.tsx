@@ -88,8 +88,15 @@ export function ChallengeReview() {
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id} className="border-t border-line hover:bg-cloud">
-                  <td className="px-3 py-2 font-mono text-xs">#{c.id.slice(-6)}</td>
-                  <td className="px-3 py-2">{c.returnCase.item.name}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    #{c.id.slice(-6)}
+                    {c.kind !== "GRADE_DISPUTE" && (
+                      <span className="ml-1 rounded bg-link/10 px-1 py-0.5 text-[9px] font-bold text-link">
+                        {c.kind === "SELL_VERIFICATION" ? "SELL" : "RETURN"} VERIFY
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">{c.item.name}</td>
                   <td className="px-3 py-2">{c.openedByName ?? c.openedByUserId}</td>
                   <td className="px-3 py-2">
                     {c.snapshot.grade ? <GradeBadge grade={c.snapshot.grade} size="sm" /> : "—"}
@@ -151,6 +158,7 @@ function ChallengeDetail({
 
   const resolved = isResolved(challenge.status);
   const needsGrade = resolution === "MODIFY" || resolution === "OVERRIDE";
+  const isVerification = challenge.kind !== "GRADE_DISPUTE";
 
   async function run(fn: () => Promise<ChallengeDTO>) {
     setBusy(true);
@@ -179,20 +187,23 @@ function ChallengeDetail({
           </button>
         </div>
 
-        {/* Item + seller */}
+        {/* Item + requester */}
         <div className="flex items-center gap-3 rounded border border-line bg-white p-3">
           <ProductImage
-            src={challenge.returnCase.item.imageUrl}
-            category={challenge.returnCase.item.category}
-            alt={challenge.returnCase.item.name}
+            src={challenge.item.imageUrl}
+            category={challenge.item.category}
+            alt={challenge.item.name}
             className="h-14 w-14 rounded"
           />
           <div className="min-w-0 flex-1">
-            <div className="font-semibold">{challenge.returnCase.item.name}</div>
+            <div className="font-semibold">{challenge.item.name}</div>
             <div className="text-xs text-storm">
-              {challenge.returnCase.item.category} · disputed by{" "}
-              {challenge.openedByName ?? challenge.openedByUserId} · return reason:{" "}
-              {challenge.returnCase.reason}
+              {challenge.item.category} · by {challenge.openedByName ?? challenge.openedByUserId}
+              {challenge.returnCase
+                ? ` · return reason: ${challenge.returnCase.reason}`
+                : challenge.kind === "SELL_VERIFICATION"
+                  ? " · Sell listing verification"
+                  : " · verification"}
             </div>
           </div>
           <Badge tone={statusTone(challenge.status)}>{challenge.status.replace(/_/g, " ")}</Badge>
@@ -314,56 +325,106 @@ function ChallengeDetail({
               </Button>
             </div>
 
-            <div className="rounded border border-line p-3">
-              <label className="mb-1 block text-xs font-semibold text-storm">Resolve</label>
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={resolution}
-                  onChange={(e) => setResolution(e.target.value as typeof resolution)}
-                  className="rounded border border-line px-2 py-1 text-sm"
-                >
-                  <option value="UPHOLD">Uphold AI verdict</option>
-                  <option value="MODIFY">Modify grade</option>
-                  <option value="OVERRIDE">Override grade</option>
-                  <option value="REJECT">Reject challenge</option>
-                </select>
-                {needsGrade && (
+            {isVerification ? (
+              <div className="rounded border border-line p-3">
+                <label className="mb-1 block text-xs font-semibold text-storm">
+                  Human verification decision
+                </label>
+                <p className="mb-2 text-xs text-storm">
+                  The AI gate flagged this item. Confirm whether it&apos;s genuine.
+                  {challenge.kind === "SELL_VERIFICATION"
+                    ? " Accepting lists it for sale automatically."
+                    : " Accepting resumes the return (grade + feasibility); rejecting denies it."}
+                </p>
+                <textarea
+                  value={reasoning}
+                  onChange={(e) => setReasoning(e.target.value)}
+                  placeholder="Decision reasoning (recorded in the audit trail)…"
+                  className="w-full rounded border border-line px-2 py-1 text-sm"
+                  rows={2}
+                />
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    disabled={busy || !reasoning.trim()}
+                    onClick={() =>
+                      run(() =>
+                        apiClient.adminDecideChallenge(challenge.id, {
+                          decision: "ACCEPT",
+                          reasoning: reasoning.trim(),
+                        }),
+                      )
+                    }
+                  >
+                    ✅ Accept (genuine)
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy || !reasoning.trim()}
+                    onClick={() =>
+                      run(() =>
+                        apiClient.adminDecideChallenge(challenge.id, {
+                          decision: "REJECT",
+                          reasoning: reasoning.trim(),
+                        }),
+                      )
+                    }
+                  >
+                    ✕ Reject
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded border border-line p-3">
+                <label className="mb-1 block text-xs font-semibold text-storm">Resolve</label>
+                <div className="flex flex-wrap gap-2">
                   <select
-                    value={revisedGrade}
-                    onChange={(e) => setRevisedGrade(e.target.value as Grade)}
+                    value={resolution}
+                    onChange={(e) => setResolution(e.target.value as typeof resolution)}
                     className="rounded border border-line px-2 py-1 text-sm"
                   >
-                    {GRADES.map((g) => (
-                      <option key={g} value={g}>
-                        Grade {g}
-                      </option>
-                    ))}
+                    <option value="UPHOLD">Uphold AI verdict</option>
+                    <option value="MODIFY">Modify grade</option>
+                    <option value="OVERRIDE">Override grade</option>
+                    <option value="REJECT">Reject challenge</option>
                   </select>
-                )}
+                  {needsGrade && (
+                    <select
+                      value={revisedGrade}
+                      onChange={(e) => setRevisedGrade(e.target.value as Grade)}
+                      className="rounded border border-line px-2 py-1 text-sm"
+                    >
+                      {GRADES.map((g) => (
+                        <option key={g} value={g}>
+                          Grade {g}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <textarea
+                  value={reasoning}
+                  onChange={(e) => setReasoning(e.target.value)}
+                  placeholder="Decision reasoning (recorded in the audit trail and shown to the seller)…"
+                  className="mt-2 w-full rounded border border-line px-2 py-1 text-sm"
+                  rows={2}
+                />
+                <Button
+                  disabled={busy || !reasoning.trim() || (needsGrade && !revisedGrade)}
+                  onClick={() =>
+                    run(() =>
+                      apiClient.adminResolveChallenge(challenge.id, {
+                        resolution,
+                        revisedGrade: needsGrade ? revisedGrade : undefined,
+                        reasoning: reasoning.trim(),
+                      }),
+                    )
+                  }
+                  className="mt-2"
+                >
+                  Submit decision
+                </Button>
               </div>
-              <textarea
-                value={reasoning}
-                onChange={(e) => setReasoning(e.target.value)}
-                placeholder="Decision reasoning (recorded in the audit trail and shown to the seller)…"
-                className="mt-2 w-full rounded border border-line px-2 py-1 text-sm"
-                rows={2}
-              />
-              <Button
-                disabled={busy || !reasoning.trim() || (needsGrade && !revisedGrade)}
-                onClick={() =>
-                  run(() =>
-                    apiClient.adminResolveChallenge(challenge.id, {
-                      resolution,
-                      revisedGrade: needsGrade ? revisedGrade : undefined,
-                      reasoning: reasoning.trim(),
-                    }),
-                  )
-                }
-                className="mt-2"
-              >
-                Submit decision
-              </Button>
-            </div>
+            )}
             {error && <p className="text-sm text-danger">{error}</p>}
           </div>
         ) : (

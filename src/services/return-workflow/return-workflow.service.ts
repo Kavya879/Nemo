@@ -176,6 +176,10 @@ export function createReturnWorkflowService() {
         },
       } as unknown as Prisma.InputJsonValue;
 
+      // Each non-PROCEED outcome counts as a failed verification attempt — after
+      // a few, the UI offers to escalate to admin (human) verification.
+      const failPatch = { ...verPatch, verificationAttempts: { increment: 1 } };
+
       if (verification.recommendation === "MANUAL_REVIEW") {
         return returnCaseRepository.transition(c.id, {
           status: "MANUAL_REVIEW",
@@ -185,7 +189,7 @@ export function createReturnWorkflowService() {
             verification.productMatchConfidence,
           )}%. ${verification.summary}`,
           data: verData,
-          patch: verPatch,
+          patch: failPatch,
         });
       }
 
@@ -198,7 +202,7 @@ export function createReturnWorkflowService() {
             config.verificationMatchThreshold,
           )}% threshold. Please upload clearer front, back, side and packaging photos.`,
           data: verData,
-          patch: verPatch,
+          patch: failPatch,
         });
       }
 
@@ -229,7 +233,7 @@ export function createReturnWorkflowService() {
             grade: result.grade,
             confidence: result.confidence,
           } as unknown as Prisma.InputJsonValue,
-          patch: { ...verPatch, gradeResultId: latest?.id ?? null },
+          patch: { ...failPatch, gradeResultId: latest?.id ?? null },
         });
       }
 
@@ -577,6 +581,76 @@ export function createReturnWorkflowService() {
         message: `Donated through Amazon to a partner charity. +${credits.credits} Amazon Nemo Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
         data: { disposition: "DONATED", credits } as unknown as Prisma.InputJsonValue,
         patch: { disposition: "DONATED" },
+      });
+    },
+
+    /**
+     * Admin ACCEPTS a verification escalation: the item is confirmed genuine, so
+     * we bypass the failing AI gate, grade the photos the customer already
+     * submitted, and continue the workflow (grade → feasibility analysis).
+     */
+    async adminApproveVerification(input: {
+      caseId: string;
+      reviewer: string;
+    }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(c.status, ["MANUAL_REVIEW", "EVIDENCE_REQUESTED"], "approve verification");
+
+      const stored = (c.returnPhotos as unknown as
+        | { data: string; mimeType: string; role: string }[]
+        | null) ?? [];
+      if (stored.length === 0) {
+        throw new ConflictError("No submitted photos on file to grade.");
+      }
+      const images: RoledImageInput[] = stored.map((p) => ({
+        base64: p.data,
+        mimeType: (p.mimeType as RoledImageInput["mimeType"]) ?? "image/jpeg",
+        role: (p.role as RoledImageInput["role"]) ?? "other",
+      }));
+
+      // Grade directly — the admin has already vouched for authenticity, so the
+      // verification gate (and its quality-confidence floor) is intentionally
+      // bypassed here.
+      const result = await gradingService.grade({
+        images,
+        itemId: c.itemId,
+        verification: {
+          productMatchConfidence: c.productMatchConfidence ?? 1,
+          fraudRiskScore: c.fraudRiskScore ?? 0,
+        },
+      });
+      const latest = await gradeRepository.findLatestForItem(c.itemId);
+
+      await returnCaseRepository.transition(c.id, {
+        status: "GRADED",
+        message: `Admin (${input.reviewer}) verified the item as genuine. Bypassed the AI gate and graded: Grade ${result.grade} (${Math.round(
+          result.confidence * 100,
+        )}% quality confidence). ${result.summary}`,
+        data: { grade: result.grade, confidence: result.confidence, flaws: result.flaws } as unknown as Prisma.InputJsonValue,
+        patch: {
+          grade: result.grade,
+          gradeConfidence: result.confidence,
+          gradeResultId: latest?.id ?? null,
+        },
+      });
+
+      // Continue the normal pipeline.
+      return this.analyze({ caseId: c.id });
+    },
+
+    /** Admin REJECTS a verification escalation: the return request is denied. */
+    async adminRejectVerification(input: {
+      caseId: string;
+      reason: string;
+      reviewer: string;
+    }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(c.status, ["MANUAL_REVIEW", "EVIDENCE_REQUESTED"], "reject verification");
+      if (c.orderId) await orderRepository.updateStatus(c.orderId, "DELIVERED");
+      return returnCaseRepository.transition(c.id, {
+        status: "DISCARDED",
+        message: `Admin (${input.reviewer}) could not verify the item — return request rejected. ${input.reason}`,
+        patch: { rejectionReason: input.reason },
       });
     },
   };

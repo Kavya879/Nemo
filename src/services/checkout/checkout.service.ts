@@ -3,6 +3,7 @@ import { listingRepository } from "@/repositories/listing.repository";
 import { itemRepository } from "@/repositories/item.repository";
 import { productRepository } from "@/repositories/product.repository";
 import { orderRepository } from "@/repositories/order.repository";
+import { returnDealsService } from "@/services/return-deals/return-deals.service";
 import { ConflictError } from "@/lib/errors";
 import type { CreditTotals } from "@/repositories/credit.repository";
 
@@ -19,10 +20,11 @@ import type { CreditTotals } from "@/repositories/credit.repository";
  */
 
 export interface CheckoutLine {
-  kind: "NEW" | "RESOLD";
+  kind: "NEW" | "RESOLD" | "TRANSIT";
   listingId?: string;
   itemId?: string;
   productId?: string;
+  returnCaseId?: string;
   category: string;
   originalPrice: number;
   qty: number;
@@ -66,6 +68,48 @@ export function createCheckoutService() {
               quantity: line.qty,
               unitPrice: updated.price,
               product: { connect: { id: line.productId } },
+            })
+            .catch(() => undefined);
+          continue;
+        }
+
+        if (line.kind === "TRANSIT") {
+          if (!line.returnCaseId || !line.itemId) {
+            throw new ConflictError("Missing return case for an in-transit deal.");
+          }
+          // Atomically reserve the in-transit item — only one buyer can win it.
+          const won = await returnDealsService.reserve({
+            returnCaseId: line.returnCaseId,
+            buyerId: userId,
+            buyerName: userId,
+          });
+          if (!won) {
+            throw new ConflictError(
+              "This in-transit item was just reserved by another buyer — it's no longer available.",
+            );
+          }
+          // Buying a returned item early IS a second-life action → earns credits.
+          const award = await creditsService.award({
+            action: "PEER_TO_PEER",
+            category: line.category,
+            originalPrice: line.originalPrice,
+            userId,
+            itemId: line.itemId,
+          });
+          creditsEarned += award.credits;
+          co2SavedKg += award.co2SavedKg;
+          costSaved += award.costSaved;
+
+          // Authoritative discounted price at purchase time.
+          const unitPrice = await returnDealsService.priceFor(line.returnCaseId).catch(() => undefined);
+          await orderRepository
+            .create({
+              userId,
+              orderedAt: new Date(),
+              status: "PLACED",
+              quantity: 1,
+              ...(typeof unitPrice === "number" ? { unitPrice } : {}),
+              item: { connect: { id: line.itemId } },
             })
             .catch(() => undefined);
           continue;

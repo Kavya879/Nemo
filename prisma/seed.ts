@@ -79,6 +79,13 @@ async function seedConfig() {
     warehouseProximityKm: 50,
     secondLifeWindowDays: 7,
     depreciationByGrade,
+    // Return-in-Transit early-sale rules (configurable, not hardcoded in the UI).
+    returnTransitArrivalDays: 7,
+    returnTransitDiscountTiers: [
+      { minDays: 0, pct: 0 },
+      { minDays: 4, pct: 0.05 },
+      { minDays: 6, pct: 0.1 },
+    ] as Prisma.InputJsonValue,
   };
 
   const base = {
@@ -895,6 +902,47 @@ async function seedReturnCases() {
   console.info(`✔ ${n} return cases seeded (varied grades, paths & matches)`);
 }
 
+/**
+ * Return-in-Transit deals — items in the early return pipeline, offered to
+ * nearby buyers at a dynamically-growing discount. Seeded at different ages so
+ * the discount tiers (0%, 5%, 10%) are visible on the homepage. The items are
+ * unlisted (no active second-life Listing), so they don't double-appear.
+ */
+async function seedTransitDeals() {
+  const deals: Array<{ itemId: string; reason: string; status: ReturnStatus; daysAgo: number }> = [
+    { itemId: "demo-item-monitor", reason: "Dead pixels", status: "RETURN_PICKUP_SCHEDULED", daysAgo: 1 },
+    { itemId: "demo-item-earbuds", reason: "Changed my mind", status: "GRADED", daysAgo: 5 },
+    { itemId: "demo-item-blocks", reason: "Duplicate gift", status: "RETURN_APPROVED", daysAgo: 7 },
+  ];
+  let n = 0;
+  for (const d of deals) {
+    const item = await prisma.item.findUnique({ where: { id: d.itemId } });
+    if (!item) continue;
+    const created = daysAgo(d.daysAgo);
+    const rc = await prisma.returnCase.create({
+      data: {
+        userId: "demo-user",
+        itemId: item.id,
+        reason: d.reason,
+        status: d.status,
+        grade: item.currentGrade,
+        gradeConfidence: item.currentGrade ? 0.88 : null,
+        createdAt: created,
+      },
+    });
+    await prisma.returnEvent.create({
+      data: {
+        returnCaseId: rc.id,
+        status: "INITIATED",
+        message: "Return initiated — item entered the pipeline and is offered as an in-transit deal.",
+        createdAt: created,
+      },
+    });
+    n++;
+  }
+  console.info(`✔ ${n} return-in-transit deals seeded`);
+}
+
 // ── Reviews + browsing (return-prevention intelligence inputs) ────────────────
 // Reviews are seeded WITHOUT a cached sentiment (no model in the seed); the
 // review-sentiment signal falls back to the star rating, and the POST
@@ -978,6 +1026,7 @@ async function main() {
   await seedReturns();
   await seedBuyers();
   await seedReturnCases();
+  await seedTransitDeals();
   await seedReviews();
   await seedBrowsing();
   console.info("✅ Seed complete.");

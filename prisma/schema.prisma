@@ -172,6 +172,7 @@ model Item {
   reviews             Review[]
   productViews        ProductView[]
   wishlistItems       WishlistItem[]
+  challenges          Challenge[]
 
   @@index([category])
   @@index([status])
@@ -250,6 +251,9 @@ model ReturnCase {
   verificationResultId   String?
   productMatchConfidence Float?
   fraudRiskScore         Float?
+  /// How many times the pre-grade verification gate has failed (drives the
+  /// "request admin verification" escalation after repeated failures).
+  verificationAttempts   Int     @default(0)
 
   // Grading snapshot
   gradeResultId   String?
@@ -265,6 +269,14 @@ model ReturnCase {
   reservedBuyerId     String?
   reservedBuyerName   String?
   reservedDistanceKm  Float?
+
+  // Return-in-Transit early sale — the item is offered to nearby buyers at a
+  // dynamically-growing discount while still in the return pipeline, instead of
+  // waiting for warehouse intake/grading. Set once a buyer purchases it.
+  transitSold       Boolean   @default(false)
+  transitBuyerId    String?
+  transitBuyerName  String?
+  transitReservedAt DateTime?
 
   // Delivery-partner verification
   verificationApproved Boolean?
@@ -412,12 +424,20 @@ model VerificationResult {
   @@index([returnCaseId])
 }
 
-/// A seller's formal challenge of an AI verdict — the review ticket itself.
+/// A formal challenge/escalation of an AI verdict — the review ticket itself.
+/// Covers grade disputes (tied to a return case) AND pre-grade verification
+/// escalations from either the return flow or the Sell flow (which has no
+/// return case — only an item). `kind` distinguishes them.
 model Challenge {
   id             String          @id @default(cuid())
-  returnCaseId   String
-  returnCase     ReturnCase      @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  /// Set for return-flow challenges; null for Sell-flow verification escalations.
+  returnCaseId   String?
+  returnCase     ReturnCase?     @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
   itemId         String
+  /// Always-present item link so any challenge can be reviewed standalone.
+  item           Item            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// "GRADE_DISPUTE" | "RETURN_VERIFICATION" | "SELL_VERIFICATION".
+  kind           String          @default("GRADE_DISPUTE")
   openedByUserId String
   openedByName   String?
   status         ChallengeStatus @default(OPEN)
@@ -623,6 +643,16 @@ model RoutingConfig {
   warehouseProximityKm Float @default(50)
   /// Length of the Second Life opportunity window (days).
   secondLifeWindowDays Int @default(7)
+
+  // ── Return-in-Transit early-sale rules ──
+  /// Estimated days from return initiation until the item would arrive — used to
+  /// show buyers an estimated arrival date for in-transit deals.
+  returnTransitArrivalDays Int @default(7)
+  /// Discount tiers as days-in-pipeline → fraction off, e.g.
+  /// [{ "minDays": 0, "pct": 0 }, { "minDays": 4, "pct": 0.05 }, { "minDays": 6, "pct": 0.10 }].
+  /// The highest tier whose minDays ≤ elapsed days applies. Nullable so it can be
+  /// added to an existing row; the seed always populates it.
+  returnTransitDiscountTiers Json?
 
   updatedAt DateTime @updatedAt
 }

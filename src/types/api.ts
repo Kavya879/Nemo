@@ -38,17 +38,24 @@ export const ListingStatusSchema = z.object({
  */
 export const CheckoutLineSchema = z
   .object({
-    kind: z.enum(["NEW", "RESOLD"]).default("RESOLD"),
+    kind: z.enum(["NEW", "RESOLD", "TRANSIT"]).default("RESOLD"),
     listingId: z.string().optional(),
     itemId: z.string().optional(),
     productId: z.string().optional(),
+    /** Return-in-Transit deal: the return case being bought early. */
+    returnCaseId: z.string().optional(),
     category: z.string().min(1),
     originalPrice: z.number().nonnegative(),
     qty: z.number().int().positive(),
   })
   .refine(
-    (l) => (l.kind === "NEW" ? !!l.productId : !!l.listingId && !!l.itemId),
-    "NEW lines need productId; RESOLD lines need listingId + itemId.",
+    (l) =>
+      l.kind === "NEW"
+        ? !!l.productId
+        : l.kind === "TRANSIT"
+          ? !!l.returnCaseId && !!l.itemId
+          : !!l.listingId && !!l.itemId,
+    "NEW needs productId; TRANSIT needs returnCaseId + itemId; RESOLD needs listingId + itemId.",
   );
 
 export const CheckoutRequestSchema = z.object({
@@ -154,8 +161,27 @@ export const AdminChallengeActionSchema = z.discriminatedUnion("action", [
     revisedGrade: z.enum(["A", "B", "C", "D"]).optional(),
     reasoning: z.string().min(1),
   }),
+  // Accept/reject for a verification escalation (no grade involved).
+  z.object({
+    action: z.literal("decide"),
+    reviewer: z.string().min(1),
+    decision: z.enum(["ACCEPT", "REJECT"]),
+    reasoning: z.string().min(1),
+  }),
 ]);
 export type AdminChallengeActionInput = z.infer<typeof AdminChallengeActionSchema>;
+
+/** Request human (admin) verification after the AI gate has repeatedly failed. */
+export const RequestVerificationSchema = z.object({
+  reason: z.string().min(1),
+  comment: z.string().min(1),
+  userId: z.string().optional(),
+  userName: z.string().optional(),
+  /** Sell flow only: the intended listing price (to auto-list on accept). */
+  intendedPrice: z.number().positive().optional(),
+  intendedPricePct: z.number().min(0).max(2).optional(),
+});
+export type RequestVerificationInput = z.infer<typeof RequestVerificationSchema>;
 
 // ── Return-prevention intelligence ──
 export const RecordViewSchema = z.object({

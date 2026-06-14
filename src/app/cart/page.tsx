@@ -70,7 +70,12 @@ export default function CartPage() {
 
         <ul className="divide-y divide-line">
           {lines.map((l) => {
-            const href = l.kind === "NEW" ? `/products/${l.productId}` : `/marketplace/${l.listingId}`;
+            const href =
+              l.kind === "NEW"
+                ? `/products/${l.productId}`
+                : l.kind === "TRANSIT"
+                  ? "/"
+                  : `/marketplace/${l.listingId}`;
             const atMax = l.qty >= l.maxQty;
             return (
             <li key={l.key} className="flex gap-4 py-4">
@@ -87,7 +92,11 @@ export default function CartPage() {
                   {l.title}
                 </Link>
                 <p className="text-xs text-success">
-                  {l.kind === "NEW" ? "Brand New · In stock" : "Certified Pre-Owned"}
+                  {l.kind === "NEW"
+                    ? "Brand New · In stock"
+                    : l.kind === "TRANSIT"
+                      ? "Return-in-Transit deal"
+                      : "Certified Pre-Owned"}
                 </p>
                 <p className="text-xs text-storm">{l.category}</p>
                 {noteFor(l.listingId)?.note && (
