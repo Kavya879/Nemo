@@ -1,4 +1,10 @@
 import type {
+  AdminAnalyticsDTO,
+  AdminCaseDetailDTO,
+  AdminCaseRowDTO,
+  AdminConfigDTO,
+  AdminMapDTO,
+  AdminPreventionDTO,
   BuyerMatchDTO,
   CheckoutResultDTO,
   CreditTotalsDTO,
@@ -163,6 +169,25 @@ export const apiClient = {
     request<ReturnCaseDTO>(`/api/return-cases/${id}/donation-decision`, {
       method: "POST",
       body: JSON.stringify({ action }),
+    }),
+
+  // ── Admin console ──
+  adminCases: () => request<AdminCaseRowDTO[]>("/api/admin/return-cases"),
+  adminCaseDetail: (id: string) =>
+    request<AdminCaseDetailDTO>(`/api/admin/return-cases/${id}`),
+  adminMap: () => request<AdminMapDTO>("/api/admin/map"),
+  adminAnalytics: () => request<AdminAnalyticsDTO>("/api/admin/analytics"),
+  adminPrevention: () => request<AdminPreventionDTO[]>("/api/admin/prevention"),
+  adminConfig: () => request<AdminConfigDTO>("/api/admin/config"),
+  adminUpdateConfig: (patch: Record<string, number>) =>
+    request<AdminConfigDTO>("/api/admin/config", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  adminSetListingStatus: (id: string, status: "ACTIVE" | "INACTIVE") =>
+    request<{ id: string; status: string }>(`/api/admin/listings/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
     }),
 
   getOrders: (userId: string = currentUserId()) =>

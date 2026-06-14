@@ -31,6 +31,15 @@ export const returnRepository = {
     return true;
   },
 
+  /** All returns with their item (for admin prevention insights). */
+  async listAllWithItem(limit = 500) {
+    return prisma.return.findMany({
+      include: { item: true },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  },
+
   /** Historical returns for a category — feeds the prevention service. */
   async listForCategory(category: string, limit = 200): Promise<Return[]> {
     return prisma.return.findMany({

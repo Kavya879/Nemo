@@ -144,8 +144,9 @@ model ReturnCase {
   decision ReturnDecision?
 
   // Grading snapshot
-  gradeResultId String?
-  grade         Grade?
+  gradeResultId   String?
+  grade           Grade?
+  gradeConfidence Float?
 
   // Feasibility snapshot (the full cost/recovery breakdown as produced by the engine)
   feasibility Json?

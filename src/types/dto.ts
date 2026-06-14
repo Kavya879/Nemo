@@ -168,6 +168,100 @@ export interface ReturnDTO {
   createdAt: string;
 }
 
+// ── Admin console ──
+export interface AdminCaseRowDTO {
+  id: string;
+  itemName: string;
+  category: string;
+  brand: string | null;
+  originalPrice: number;
+  grade: Grade | null;
+  confidence: number | null;
+  status: string;
+  decision: "FEASIBLE" | "NOT_FEASIBLE" | null;
+  disposition: string | null;
+  pathLabel: string;
+  reservedBuyerName: string | null;
+  reservedDistanceKm: number | null;
+  expectedResaleValue: number | null;
+  netRecoveryValue: number | null;
+  createdAt: string;
+}
+
+export interface AdminCaseDetailDTO {
+  case: {
+    id: string;
+    itemName: string;
+    category: string;
+    brand: string | null;
+    originalPrice: number;
+    grade: Grade | null;
+    confidence: number | null;
+    status: string;
+    decision: "FEASIBLE" | "NOT_FEASIBLE" | null;
+    disposition: string | null;
+    reason: string;
+    reservedBuyerName: string | null;
+    reservedDistanceKm: number | null;
+    pathLabel: string;
+  };
+  feasibility: FeasibilityDTO | null;
+  routing: RoutingResultDTO;
+  nearbyDemandCount: number;
+  events: { status: string; message: string; createdAt: string }[];
+}
+
+export interface AdminMapDTO {
+  origin: { lat: number; lng: number };
+  radiusKm: number;
+  buyers: { id: string; name: string; lat: number; lng: number; wishlist: string[] }[];
+  returns: {
+    id: string;
+    itemName: string;
+    category: string;
+    status: string;
+    pathLabel: string;
+    matched: boolean;
+    buyer: { name: string; lat: number; lng: number; distanceKm: number | null } | null;
+  }[];
+}
+
+export interface AdminAnalyticsDTO {
+  totalReturns: number;
+  divertedFromLandfill: number;
+  recycled: number;
+  co2SavedKg: number;
+  costSaved: number;
+  creditsIssued: number;
+  secondLifeActions: number;
+  avgGradingMs: number;
+  underTwoSecPct: number;
+  pathBreakdown: { label: string; count: number }[];
+}
+
+export interface AdminPreventionDTO {
+  category: string;
+  sampleSize: number;
+  topReason: string;
+  topPct: number;
+  reasons: { reason: string; count: number }[];
+  nudge: string;
+}
+
+export interface AdminConfigDTO {
+  matchRadiusKm: number;
+  feasibilityRatio: number;
+  peerToPeerMinBuyers: number;
+  repairabilityThreshold: number;
+  returnWindowDays: number;
+  minNetRecoveryValue: number;
+  demandPriceMultiplier: number;
+  transportCostPerKm: number;
+  priceBands: unknown;
+  creditsPerAction: unknown;
+  gradeDefaultRoutes: unknown;
+}
+
 export interface CheckoutResultDTO {
   orderRef: string;
   itemCount: number;

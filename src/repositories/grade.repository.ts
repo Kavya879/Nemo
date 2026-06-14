@@ -20,4 +20,17 @@ export const gradeRepository = {
       orderBy: { createdAt: "desc" },
     });
   },
+
+  /** Aggregate grading-speed stats for the analytics dashboard. */
+  async stats(): Promise<{ count: number; avgTookMs: number; underTwoSecPct: number }> {
+    const agg = await prisma.gradeResult.aggregate({ _avg: { tookMs: true }, _count: true });
+    const count = agg._count;
+    if (count === 0) return { count: 0, avgTookMs: 0, underTwoSecPct: 0 };
+    const under = await prisma.gradeResult.count({ where: { tookMs: { lt: 2000 } } });
+    return {
+      count,
+      avgTookMs: Math.round(agg._avg.tookMs ?? 0),
+      underTwoSecPct: Number((under / count).toFixed(3)),
+    };
+  },
 };

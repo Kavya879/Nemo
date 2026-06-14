@@ -1,4 +1,10 @@
-import { PrismaClient, Prisma, type Grade } from "@prisma/client";
+import {
+  PrismaClient,
+  Prisma,
+  type Grade,
+  type ReturnStatus,
+  type Disposition,
+} from "@prisma/client";
 
 /**
  * Seed script.
@@ -481,6 +487,186 @@ async function reset() {
   console.info("✔ Cleared previous demo data");
 }
 
+// ── Return-case fleet (populates the Admin Command Center "at scale") ─────────
+
+const DEP: Record<Grade, number> = { A: 0.85, B: 0.65, C: 0.45, D: 0.2 };
+const REPACK_MULT: Record<Grade, number> = { A: 1, B: 1.2, C: 1.5, D: 2 };
+const CONF: Record<Grade, number> = { A: 0.95, B: 0.9, C: 0.82, D: 0.74 };
+const WAREHOUSE_DISTANCE_KM = 228.2;
+
+function feasibilityFor(originalPrice: number, grade: Grade, demand: number) {
+  const pickupCost = 80;
+  const transportationCost = Math.round(WAREHOUSE_DISTANCE_KM * 3);
+  const warehouseHandlingCost = 40;
+  const inspectionCost = 35;
+  const repackagingCost = Math.round(25 * REPACK_MULT[grade]);
+  const storageCost = 80;
+  const totalProcessingCost =
+    pickupCost + transportationCost + warehouseHandlingCost + inspectionCost + repackagingCost + storageCost;
+  const expectedResaleValue = Math.round(originalPrice * PRICE_PCT[grade] * (demand >= 1 ? 1.05 : 1));
+  const estimatedCurrentValue = Math.round(originalPrice * DEP[grade]);
+  const netRecoveryValue = expectedResaleValue - totalProcessingCost;
+  const recoveryRatio = Number((expectedResaleValue / totalProcessingCost).toFixed(2));
+  const feasible = netRecoveryValue >= 0 && recoveryRatio >= 1.15;
+  return {
+    originalValue: originalPrice,
+    estimatedCurrentValue,
+    pickupCost,
+    transportationCost,
+    warehouseHandlingCost,
+    inspectionCost,
+    repackagingCost,
+    storageCost,
+    totalProcessingCost,
+    expectedResaleValue,
+    netRecoveryValue,
+    recoveryRatio,
+    distanceKm: WAREHOUSE_DISTANCE_KM,
+    decision: feasible ? "FEASIBLE" : "NOT_FEASIBLE",
+    reasoning: feasible
+      ? `Expected resale ₹${expectedResaleValue} vs ₹${totalProcessingCost} processing cost → ₹${netRecoveryValue} net (ratio ${recoveryRatio}). Return is viable.`
+      : `Only ₹${netRecoveryValue} net recovery at ratio ${recoveryRatio} (< 1.15). Route to Second Life instead.`,
+  };
+}
+
+const CHAINS: Record<string, ReturnStatus[]> = {
+  return: ["INITIATED", "GRADED", "FEASIBILITY_ANALYZED", "RETURN_APPROVED", "RETURN_PICKUP_SCHEDULED", "RETURNED_TO_SELLER"],
+  match: ["INITIATED", "GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED", "BUYER_RESERVED", "SL_PICKUP_SCHEDULED", "DELIVERY_VERIFICATION", "TRANSFER_APPROVED", "REFUND_INITIATED", "COMPLETED"],
+  liquidate: ["INITIATED", "GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED", "WINDOW_EXPIRED", "LIQUIDATION_PICKUP", "LIQUIDATED"],
+  donate: ["INITIATED", "GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED", "WINDOW_EXPIRED", "DONATION_PENDING"],
+};
+
+const STATUS_MSG: Partial<Record<ReturnStatus, string>> = {
+  INITIATED: "Return request initiated by customer.",
+  GRADED: "AI grading complete.",
+  FEASIBILITY_ANALYZED: "Feasibility Analysis Engine ran.",
+  RETURN_APPROVED: "Return approved — economically viable.",
+  RETURN_PICKUP_SCHEDULED: "Pickup scheduled with delivery partner.",
+  RETURNED_TO_SELLER: "Item returned to seller / refurbishment center.",
+  SECOND_LIFE_LISTED: "Auto-listed in the Second Life marketplace.",
+  BUYER_RESERVED: "Interested buyer found nearby — reserved (identity protected).",
+  SL_PICKUP_SCHEDULED: "Pickup scheduled for verification.",
+  DELIVERY_VERIFICATION: "Delivery partner verifying the item.",
+  TRANSFER_APPROVED: "Delivery partner approved the transfer.",
+  REFUND_INITIATED: "Refund initiated to the original customer.",
+  COMPLETED: "Second-life transaction completed.",
+  WINDOW_EXPIRED: "Second Life window expired with no buyer.",
+  LIQUIDATION_PICKUP: "Pickup scheduled for disposition.",
+  LIQUIDATED: "Entered disposition flow.",
+  DONATION_PENDING: "Classified for donation — awaiting user choice.",
+};
+
+interface CaseSpec {
+  item: string;
+  chain: keyof typeof CHAINS;
+  status: ReturnStatus;
+  reason: string;
+  buyer?: { id: string; name: string; distanceKm: number };
+  disposition?: Disposition;
+}
+
+const CASES: CaseSpec[] = [
+  { item: "demo-item-headphones", chain: "return", status: "RETURNED_TO_SELLER", reason: "Defective on arrival" },
+  { item: "demo-item-tablet", chain: "return", status: "RETURN_PICKUP_SCHEDULED", reason: "Changed my mind" },
+  { item: "demo-item-monitor", chain: "return", status: "RETURNED_TO_SELLER", reason: "Dead pixels" },
+  { item: "demo-item-jacket", chain: "return", status: "RETURNED_TO_SELLER", reason: "Size too large" },
+  { item: "demo-item-sneakers", chain: "return", status: "RETURN_PICKUP_SCHEDULED", reason: "Size too small" },
+  { item: "mkt-item-coffee", chain: "return", status: "FEASIBILITY_ANALYZED", reason: "Not as described" },
+  { item: "mkt-item-boots", chain: "return", status: "RETURNED_TO_SELLER", reason: "Uncomfortable fit" },
+  { item: "mkt-item-jeans", chain: "return", status: "GRADED", reason: "Wrong size" },
+  { item: "demo-item-tshirt", chain: "match", status: "BUYER_RESERVED", reason: "Size too large", buyer: { id: "demo-buyer-1", name: "Aarav", distanceKm: 1.0 } },
+  { item: "mkt-item-book", chain: "match", status: "COMPLETED", reason: "Duplicate gift", buyer: { id: "demo-buyer-3", name: "Kabir", distanceKm: 3.0 } },
+  { item: "mkt-item-powerbank", chain: "match", status: "DELIVERY_VERIFICATION", reason: "Slow charging", buyer: { id: "demo-buyer-2", name: "Diya", distanceKm: 2.0 } },
+  { item: "demo-item-blender", chain: "liquidate", status: "LIQUIDATED", reason: "Stopped working", disposition: "RECYCLED" },
+  { item: "demo-item-lamp", chain: "donate", status: "DONATION_PENDING", reason: "No longer needed", disposition: "DONATED" },
+];
+
+async function seedReturnCases() {
+  const items = await prisma.item.findMany();
+  const byId = new Map(items.map((i) => [i.id, i]));
+  let n = 0;
+
+  for (let idx = 0; idx < CASES.length; idx++) {
+    const spec = CASES[idx];
+    const item = byId.get(spec.item);
+    if (!item) continue;
+    const grade = (item.currentGrade ?? "B") as Grade;
+    const confidence = Number((CONF[grade] - (idx % 5) * 0.01).toFixed(2));
+    const demand = spec.buyer ? 1 : 0;
+    const analyzed = spec.status !== "INITIATED" && spec.status !== "GRADED";
+    const feasibility = analyzed ? feasibilityFor(item.originalPrice, grade, demand) : null;
+    const decision = feasibility ? (feasibility.decision as "FEASIBLE" | "NOT_FEASIBLE") : null;
+    const tookMs = 800 + Math.floor(Math.random() * 1100);
+    const baseTime = Date.now() - idx * 9 * 60_000; // newest first
+
+    const gr = await prisma.gradeResult.create({
+      data: {
+        itemId: item.id,
+        grade,
+        confidence,
+        flaws:
+          grade === "A"
+            ? []
+            : [{ type: grade === "D" ? "wear" : "cosmetic-wear", severity: grade === "D" ? "severe" : grade === "C" ? "moderate" : "minor", location: "general" }],
+        summary: `AI assessment: Grade ${grade}.`,
+        gradedBy: "bedrock",
+        tookMs,
+      },
+    });
+
+    const rc = await prisma.returnCase.create({
+      data: {
+        userId: "demo-user",
+        itemId: item.id,
+        reason: spec.reason,
+        status: spec.status,
+        decision,
+        grade,
+        gradeConfidence: confidence,
+        gradeResultId: gr.id,
+        feasibility: feasibility as unknown as Prisma.InputJsonValue,
+        reservedBuyerId: spec.buyer?.id ?? null,
+        reservedBuyerName: spec.buyer?.name ?? null,
+        reservedDistanceKm: spec.buyer?.distanceKm ?? null,
+        disposition: spec.disposition ?? null,
+        refundAmount: spec.status === "COMPLETED" || spec.status === "REFUND_INITIATED" ? item.originalPrice : null,
+        refundInitiatedAt: spec.status === "COMPLETED" ? new Date(baseTime) : null,
+        createdAt: new Date(baseTime),
+      },
+    });
+
+    // Build the event chain up to the current status.
+    const chain = CHAINS[spec.chain];
+    const upto = chain.slice(0, chain.indexOf(spec.status) + 1);
+    for (let e = 0; e < upto.length; e++) {
+      await prisma.returnEvent.create({
+        data: {
+          returnCaseId: rc.id,
+          status: upto[e],
+          message: STATUS_MSG[upto[e]] ?? upto[e],
+          createdAt: new Date(baseTime + e * 1000),
+        },
+      });
+    }
+
+    // Completed second-life sales + donations earn impact credits.
+    if (spec.status === "COMPLETED" || (spec.status === "LIQUIDATED" && spec.disposition === "DONATED")) {
+      await prisma.greenCredit.create({
+        data: {
+          userId: "demo-user",
+          itemId: item.id,
+          action: "PEER_TO_PEER",
+          credits: 50,
+          co2SavedKg: 6,
+          costSaved: Math.round(item.originalPrice * 0.6),
+        },
+      });
+    }
+    n++;
+  }
+  console.info(`✔ ${n} return cases seeded (varied grades, paths & matches)`);
+}
+
 async function main() {
   console.info("Seeding ReLoop database…");
   await reset();
@@ -490,6 +676,7 @@ async function main() {
   await seedListings();
   await seedReturns();
   await seedBuyers();
+  await seedReturnCases();
   console.info("✅ Seed complete.");
 }
 

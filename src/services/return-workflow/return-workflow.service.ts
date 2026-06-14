@@ -137,7 +137,11 @@ export function createReturnWorkflowService() {
           result.confidence * 100,
         )}% confidence, ${result.gradedBy}, ${result.tookMs}ms). ${result.summary}`,
         data: { grade: result.grade, confidence: result.confidence, flaws: result.flaws },
-        patch: { grade: result.grade, gradeResultId: latest?.id ?? null },
+        patch: {
+          grade: result.grade,
+          gradeConfidence: result.confidence,
+          gradeResultId: latest?.id ?? null,
+        },
       });
     },
 

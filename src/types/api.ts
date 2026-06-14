@@ -8,6 +8,24 @@ import { RoutingContextSchema } from "@/services/routing/types";
  * frontend client can mirror them.
  */
 
+// ── Admin: live config control ──
+export const ConfigPatchSchema = z
+  .object({
+    matchRadiusKm: z.coerce.number().positive().optional(),
+    feasibilityRatio: z.coerce.number().positive().optional(),
+    peerToPeerMinBuyers: z.coerce.number().int().nonnegative().optional(),
+    repairabilityThreshold: z.coerce.number().min(0).max(1).optional(),
+    returnWindowDays: z.coerce.number().int().positive().optional(),
+    minNetRecoveryValue: z.coerce.number().optional(),
+    demandPriceMultiplier: z.coerce.number().positive().optional(),
+    transportCostPerKm: z.coerce.number().nonnegative().optional(),
+  })
+  .refine((o) => Object.keys(o).length > 0, "Provide at least one config field to update.");
+
+export const ListingStatusSchema = z.object({
+  status: z.enum(["ACTIVE", "RESERVED", "SOLD", "INACTIVE"]),
+});
+
 export const CheckoutRequestSchema = z.object({
   userId: z.string().optional(),
   lines: z

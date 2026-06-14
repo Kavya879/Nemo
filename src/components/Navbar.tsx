@@ -18,6 +18,7 @@ const DEPARTMENTS = [
   { href: "/impact", label: "Your Impact" },
   { href: "/coupons", label: "Coupons" },
   { href: "/orders", label: "Your Orders" },
+  { href: "/admin", label: "⚡ Admin Console" },
 ];
 
 export function Navbar() {

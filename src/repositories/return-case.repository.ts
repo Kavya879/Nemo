@@ -37,6 +37,15 @@ export const returnCaseRepository = {
     });
   },
 
+  /** Admin view: every return case (all users), newest first. */
+  async listAll(limit = 200): Promise<ReturnCaseWithRelations[]> {
+    return prisma.returnCase.findMany({
+      include: { item: true, events: { orderBy: { createdAt: "asc" } } },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  },
+
   /** Cases that are in the active Second Life window (for buyer sweeps / expiry). */
   async listActiveSecondLife(): Promise<ReturnCase[]> {
     return prisma.returnCase.findMany({

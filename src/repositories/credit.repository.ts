@@ -53,6 +53,20 @@ export const creditRepository = {
     };
   },
 
+  /** Platform-wide impact totals (all users) for the admin analytics. */
+  async totalsAllUsers(): Promise<Omit<CreditTotals, "totalRedeemed" | "availableBalance">> {
+    const agg = await prisma.greenCredit.aggregate({
+      _sum: { credits: true, co2SavedKg: true, costSaved: true },
+      _count: true,
+    });
+    return {
+      totalCredits: agg._sum.credits ?? 0,
+      totalCo2SavedKg: agg._sum.co2SavedKg ?? 0,
+      totalCostSaved: agg._sum.costSaved ?? 0,
+      count: agg._count,
+    };
+  },
+
   async createRedemption(
     data: Prisma.RewardRedemptionCreateInput,
   ): Promise<RewardRedemption> {
