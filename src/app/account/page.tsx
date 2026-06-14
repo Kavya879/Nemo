@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useUser } from "@/lib/user-context";
-import type { CreditTotalsDTO } from "@/types/dto";
+import type { CreditTotalsDTO, TrustScoreDTO } from "@/types/dto";
 import { PurchaseAdvisorCard } from "@/components/intelligence/PurchaseAdvisorCard";
 
 const CARDS = [
+  {
+    href: "/give",
+    icon: "🌱",
+    title: "Give a Second Life",
+    desc: "Donate to charity or pass an item to a neighbour",
+  },
   {
     href: "/orders",
     icon: "📦",
@@ -49,9 +55,11 @@ const CARDS = [
 export default function AccountPage() {
   const { user } = useUser();
   const [totals, setTotals] = useState<CreditTotalsDTO | null>(null);
+  const [trust, setTrust] = useState<TrustScoreDTO | null>(null);
 
   useEffect(() => {
     apiClient.getCreditTotals().then(setTotals).catch(() => setTotals(null));
+    apiClient.getTrustScore().then(setTrust).catch(() => setTrust(null));
   }, [user.id]);
 
   return (
@@ -64,7 +72,17 @@ export default function AccountPage() {
           👤
         </div>
         <div className="flex-1">
-          <div className="text-lg font-bold text-ink">Hello, {user.name}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-lg font-bold text-ink">Hello, {user.name}</span>
+            {trust && (
+              <span
+                className="rounded-full bg-zest/15 px-2 py-0.5 text-xs font-bold text-squid"
+                title={`TrustPass ${trust.score}/100 · ${trust.accurate}/${trust.total} accurate listings`}
+              >
+                {trust.badge} · {trust.score}
+              </span>
+            )}
+          </div>
           <div className="text-sm text-storm">
             {user.role === "owner" ? "Owner / seller account" : "Buyer account"}
           </div>

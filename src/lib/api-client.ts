@@ -25,6 +25,10 @@ import type {
   ReturnDealDTO,
   NotificationDTO,
   DeliveryBoardDTO,
+  CharityDTO,
+  DonationCertificateDTO,
+  NeighbourResultDTO,
+  TrustScoreDTO,
   MatchResultDTO,
   PreventionResultDTO,
   PriceResultDTO,
@@ -440,6 +444,27 @@ export const apiClient = {
 
   // ── Delivery partner board ──
   getDeliveryTasks: () => request<DeliveryBoardDTO>("/api/delivery/tasks"),
+
+  // ── TrustPass seller reputation ──
+  getTrustScore: (userId: string = currentUserId()) =>
+    request<TrustScoreDTO>(`/api/trust?userId=${encodeURIComponent(userId)}`),
+
+  // ── Give a second life (donate / peer-to-peer) ──
+  getCharities: () => request<CharityDTO[]>("/api/give/donate"),
+  donateItem: (itemId: string, charityId: string, userId: string = currentUserId()) =>
+    request<DonationCertificateDTO>("/api/give/donate", {
+      method: "POST",
+      body: JSON.stringify({ itemId, charityId, userId }),
+    }),
+  passToNeighbour: (
+    itemId: string,
+    coords?: { lat: number; lng: number },
+    userId: string = currentUserId(),
+  ) =>
+    request<NeighbourResultDTO>("/api/give/peer", {
+      method: "POST",
+      body: JSON.stringify({ itemId, userId, ...(coords ?? {}) }),
+    }),
 
   match: (category: string, lat: number, lng: number, radiusKm?: number) => {
     const q = new URLSearchParams({

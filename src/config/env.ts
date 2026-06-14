@@ -38,10 +38,15 @@ const envSchema = z.object({
   //  - "clip"   → Transformers.js CLIP (open-source, in-process, reference-aware)
   //  - "bedrock"→ AWS Bedrock Claude vision
   //  - "local"  → sharp image-statistics heuristic (always-available fallback)
-  GRADER_PROVIDER: z.enum(["clip", "bedrock", "local"]).default("clip"),
+  //  - "kaputt" → MobileNetV3 fine-tuned on the Kaputt damage dataset (ONNX,
+  //               in-process via onnxruntime-node) — real grade + defect detection
+  GRADER_PROVIDER: z.enum(["clip", "bedrock", "local", "kaputt"]).default("kaputt"),
 
   // CLIP model for the open-source grader (auto-downloaded from the HF hub).
   CLIP_MODEL: z.string().default("Xenova/clip-vit-base-patch16"),
+
+  // Path to the trained Kaputt MobileNetV3 ONNX model (used when GRADER_PROVIDER=kaputt).
+  KAPUTT_MODEL_PATH: z.string().default("models/mobilenet_kaputt.onnx"),
 
   // Open-source NLP models for the return-prevention intelligence engine
   // (Transformers.js, auto-downloaded from the HF hub; no keys, run in-process).

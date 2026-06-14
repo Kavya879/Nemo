@@ -32,6 +32,24 @@ export const ROUTING_PATHS = [
 export const GRADES = ["A", "B", "C", "D"] as const;
 
 /**
+ * Charity partners for the Donate flow. Stable app config (not a secret), so it
+ * lives here. Each carries a human "impact" line shown on the donation certificate.
+ */
+export interface Charity {
+  id: string;
+  name: string;
+  focus: string;
+  icon: string;
+  impact: string;
+}
+export const CHARITY_PARTNERS: Charity[] = [
+  { id: "goonj", name: "Goonj", focus: "Clothing & daily essentials for rural communities", icon: "🧥", impact: "Helps clothe a family in need" },
+  { id: "robinhood", name: "Robin Hood Army", focus: "Food & supplies for the underserved", icon: "🍱", impact: "Provides meals to those in need" },
+  { id: "smile", name: "Smile Foundation", focus: "Education, books & devices for children", icon: "📚", impact: "Gives a child learning tools" },
+  { id: "ewaste", name: "Certified e-Recycler", focus: "Responsible recycling & safe disposal", icon: "♻️", impact: "Keeps e-waste out of landfill" },
+];
+
+/**
  * Canonical selling categories always offered in the Sell flow and filters,
  * regardless of what the live catalog currently contains. "Others" is always
  * available as a catch-all so sellers are never blocked by a missing category.

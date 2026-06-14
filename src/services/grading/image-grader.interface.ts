@@ -28,7 +28,7 @@ export interface GradeContext {
 
 export interface ImageGrader {
   /** Stable identifier stored on the GradeResult. */
-  readonly name: "bedrock" | "local" | "clip";
+  readonly name: "bedrock" | "local" | "clip" | "kaputt";
   /** Assess one or more product images and return a structured grade. */
   grade(images: ImageInput[], context?: GradeContext): Promise<GraderOutput>;
 }

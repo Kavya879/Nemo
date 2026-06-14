@@ -126,14 +126,17 @@ export default function HomePage() {
             🌱
           </div>
           <p className="mt-3 text-xs text-storm">
-            Earn Amazon Nemo Credits and redeem them for vouchers, perks &amp; tree-planting.
+            Donate or pass on an item, earn Amazon Nemo Credits, and redeem them for vouchers &amp;
+            tree-planting.
           </p>
-          <Link
-            href="/impact"
-            className="mt-auto pt-2 text-sm font-medium text-link hover:text-linkHover hover:underline"
-          >
-            View impact &amp; redeem
-          </Link>
+          <div className="mt-auto flex flex-col gap-1 pt-2 text-sm font-medium">
+            <Link href="/give" className="text-link hover:text-linkHover hover:underline">
+              🌱 Give an item a second life
+            </Link>
+            <Link href="/impact" className="text-link hover:text-linkHover hover:underline">
+              View impact &amp; redeem
+            </Link>
+          </div>
         </article>
       </section>
 

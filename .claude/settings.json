@@ -21,7 +21,17 @@
       "Bash(curl -s -L --max-time 20 -H \"User-Agent: AmazonNemo/1.0 \\(demo\\)\" \"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=12.9716&lon=77.5946&zoom=18&addressdetails=1\")",
       "Bash(curl -s -L --max-time 20 \"https://cdn.dummyjson.com/product-images/kitchen-accessories/boxed-blender/1.webp\" -o blender_dj.webp)",
       "Bash(curl -s -L --max-time 20 \"https://images.unsplash.com/photo-1612197527762-8cfb55b618d1?w=300&q=60\" -o blender_u.jpg)",
-      "PowerShell(npx tsx prisma/seed.ts 2>&1)"
+      "PowerShell(npx tsx prisma/seed.ts 2>&1)",
+      "Bash(npm i *)",
+      "Bash(node scripts/generate-solution-doc.mjs)",
+      "Bash(powershell -Command 'Get-CimInstance Win32_Process -Filter \"Name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -like '\\\\''*next*start*3100*'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }')",
+      "Bash(node -e \"console.log\\(process.platform, process.arch\\)\")",
+      "Bash(node -e \"try{require\\('sharp'\\);console.log\\('sharp OK'\\)}catch\\(e\\){console.log\\('sharp FAIL:', e.message.split\\('\\\\n'\\)[0]\\)}\")",
+      "Bash(node -e \"try{require\\('onnxruntime-node'\\);console.log\\('ort OK'\\)}catch\\(e\\){console.log\\('ort FAIL:', e.message.split\\('\\\\n'\\)[0]\\)}\")",
+      "Bash(npm ls *)",
+      "Bash(node node_modules/next/dist/bin/next dev -p 3100)",
+      "Bash(unzip -l \"Amazon-Nemo-Solution-Document-NEW.docx\")",
+      "Bash(unzip -p \"Amazon-Nemo-Solution-Document-NEW.docx\" word/document.xml)"
     ]
   }
 }

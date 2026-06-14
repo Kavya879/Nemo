@@ -51,6 +51,7 @@ enum GradedBy {
   bedrock
   local
   clip
+  kaputt
 }
 
 enum OrderStatus {

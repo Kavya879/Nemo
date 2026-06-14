@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { createBedrockGrader } from "./bedrock-grader";
 import { createLocalGrader } from "./local-grader";
 import { createClipGrader } from "./clip-grader";
+import { createKaputtGrader } from "./kaputt-grader";
 import type { GradeContext, GraderOutput, ImageGrader } from "./image-grader.interface";
 
 /**
@@ -46,7 +47,9 @@ function defaultDeps(): GradingDeps {
       ? createBedrockGrader()
       : env.GRADER_PROVIDER === "clip"
         ? createClipGrader()
-        : local;
+        : env.GRADER_PROVIDER === "kaputt"
+          ? createKaputtGrader()
+          : local;
   return { primary, fallback: local };
 }
 

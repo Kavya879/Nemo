@@ -10,7 +10,7 @@ export interface GradeResultDTO {
   confidence: number;
   flaws: DetectedFlaw[];
   summary: string;
-  gradedBy: "bedrock" | "local" | "clip";
+  gradedBy: "bedrock" | "local" | "clip" | "kaputt";
   tookMs: number;
   productMatchConfidence?: number | null;
   fraudRiskScore?: number | null;
@@ -154,6 +154,46 @@ export interface DeliveryBoardDTO {
   pickups: DeliveryTaskDTO[];
   completed: DeliveryTaskDTO[];
   stats: { pickups: number; completed: number };
+}
+
+// ── TrustPass seller reputation ──
+export interface TrustScoreDTO {
+  userId: string;
+  score: number;
+  badge: string;
+  contributions: number;
+  accurate: number;
+  total: number;
+  co2SavedKg: number;
+}
+
+// ── Give a second life (donate / peer-to-peer) ──
+export interface CharityDTO {
+  id: string;
+  name: string;
+  focus: string;
+  icon: string;
+  impact: string;
+}
+
+export interface DonationCertificateDTO {
+  certificateId: string;
+  itemName: string;
+  category: string;
+  charity: CharityDTO;
+  credits: number;
+  co2SavedKg: number;
+  costSaved: number;
+  issuedAt: string;
+  impact: string;
+}
+
+export interface NeighbourResultDTO {
+  matched: boolean;
+  itemName: string;
+  distanceKm?: number;
+  credits?: number;
+  co2SavedKg?: number;
 }
 
 export type StockStatusDTO = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
