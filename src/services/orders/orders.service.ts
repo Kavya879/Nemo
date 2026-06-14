@@ -1,6 +1,8 @@
 import type { Item, Order } from "@prisma/client";
 import { configRepository } from "@/repositories/config.repository";
 import { orderRepository } from "@/repositories/order.repository";
+import { listingRepository } from "@/repositories/listing.repository";
+import { itemRepository } from "@/repositories/item.repository";
 import { ConflictError, NotFoundError } from "@/lib/errors";
 
 /**
@@ -94,7 +96,13 @@ export function createOrdersService(now: () => number = () => Date.now()) {
       return { ...e, orderId: order.id };
     },
 
-    /** Cancel an order before delivery (allowed while PLACED or SHIPPED). */
+    /**
+     * Cancel an order before delivery (allowed while PLACED or SHIPPED) and
+     * restore inventory: a cancellation reverses the purchase, so the item's
+     * marketplace listing goes back ACTIVE and the item back to LISTED — it
+     * automatically reappears in the main inventory. Mirrors what checkout did
+     * (listing → SOLD, item → SOLD) so stock stays consistent.
+     */
     async cancelOrder(orderId: string): Promise<Order> {
       const order = await orderRepository.findById(orderId);
       if (!order) throw new NotFoundError(`Order ${orderId} not found.`);
@@ -104,7 +112,22 @@ export function createOrdersService(now: () => number = () => Date.now()) {
           "This order has already been delivered and can no longer be cancelled. Start a return instead.",
         );
       }
-      return orderRepository.updateStatus(orderId, "CANCELLED");
+
+      const cancelled = await orderRepository.updateStatus(orderId, "CANCELLED");
+
+      // Put the item back into sellable inventory if this purchase had taken it
+      // off the marketplace. Best-effort — never block the cancellation on it.
+      try {
+        const listing = await listingRepository.findByItemId(order.itemId);
+        if (listing && listing.status === "SOLD") {
+          await listingRepository.updateStatus(listing.id, "ACTIVE");
+          await itemRepository.updateStatus(order.itemId, "LISTED");
+        }
+      } catch {
+        /* inventory restore is best-effort; the order is already cancelled */
+      }
+
+      return cancelled;
     },
   };
 }

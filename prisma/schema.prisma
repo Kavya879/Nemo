@@ -184,6 +184,16 @@ model ReturnCase {
   status  ReturnStatus    @default(INITIATED)
   decision ReturnDecision?
 
+  // Pickup location (customer/return origin) — drives warehouse-proximity
+  // routing and nearby-buyer matching. Falls back to the demo center if unset.
+  pickupLat Float?
+  pickupLng Float?
+
+  // Photos the customer submitted at return time, persisted so the admin and the
+  // pickup delivery partner can view them and compare against the original item.
+  // [{ data: base64, mimeType, role }]
+  returnPhotos Json @default("[]")
+
   // Pre-grade verification snapshot
   verificationResultId   String?
   productMatchConfidence Float?

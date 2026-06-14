@@ -15,138 +15,173 @@ export default function HomePage() {
     apiClient.getListings().then(setListings).catch(() => setListings([]));
   }, []);
 
+  const deals = listings.slice(0, 4);
+
   return (
-    <div className="relative">
-      {/* Hero banner */}
-      <div className="h-64 w-full bg-gradient-to-b from-squid via-slate to-mist sm:h-72">
-        <div className="mx-auto flex h-full max-w-6xl flex-col justify-center px-6">
-          <p className="text-sm font-semibold uppercase tracking-widest text-zest">
+    <div className="mx-auto max-w-7xl px-4 py-5">
+      {/* Light hero banner (no dark band) */}
+      <section className="overflow-hidden rounded-card bg-gradient-to-r from-zest/40 via-cloud to-cloud">
+        <div className="flex flex-col gap-3 px-6 py-8 sm:px-10 sm:py-10">
+          <span className="text-xs font-bold uppercase tracking-widest text-ember">
             Second-Life Commerce
-          </p>
-          <h1 className="mt-2 max-w-2xl text-3xl font-bold text-white sm:text-4xl">
+          </span>
+          <h1 className="max-w-2xl text-2xl font-bold text-ink sm:text-4xl">
             Certified pre-owned, intelligently routed from every return.
           </h1>
-          <p className="mt-2 max-w-xl text-mist/80">
-            AI-graded in seconds · matched to nearby buyers · backed by a Product Health Card.
+          <p className="max-w-xl text-sm text-storm">
+            AI-graded in seconds · verified against the original product · matched to nearby buyers ·
+            backed by a Product Health Card.
           </p>
-        </div>
-      </div>
-
-      {/* Cards pulled up over the banner (Amazon style) */}
-      <div className="mx-auto -mt-28 max-w-6xl px-4 pb-10">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Category card */}
-          <div className="rounded bg-white p-4 shadow-card">
-            <h2 className="mb-3 text-lg font-bold text-ink">Shop by category</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {categories.slice(0, 6).map((c) => (
-                <Link
-                  key={c.category}
-                  href={`/marketplace?q=${encodeURIComponent(c.category)}`}
-                  className="flex flex-col items-center gap-1 rounded bg-mist/60 p-3 text-center hover:bg-mist"
-                >
-                  <span className="text-3xl">{categoryIcon(c.category)}</span>
-                  <span className="text-xs font-medium text-ink">{c.category}</span>
-                </Link>
-              ))}
-              {categories.length === 0 &&
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-16 animate-pulse rounded bg-mist/60" />
-                ))}
-            </div>
-            <Link href="/marketplace" className="mt-3 block text-sm font-medium text-link hover:text-linkHover hover:underline">
-              Shop all second-life deals
+          <div className="mt-1 flex flex-wrap gap-3">
+            <Link
+              href="/marketplace"
+              className="rounded-full bg-ember px-5 py-2 text-sm font-bold text-squid hover:bg-zestDark"
+            >
+              Shop second-life deals
             </Link>
-          </div>
-
-          {/* Start a return card */}
-          <div className="flex flex-col rounded bg-white p-4 shadow-card">
-            <h2 className="mb-3 text-lg font-bold text-ink">Start a return</h2>
-            <div className="flex flex-1 items-center justify-center rounded bg-mist/60 py-6 text-6xl">
-              📦
-            </div>
-            <p className="mt-3 text-xs text-storm">
-              Return an eligible order — we&apos;ll grade it and find its second life.
-            </p>
-            <Link href="/return" className="mt-2 text-sm font-medium text-link hover:text-linkHover hover:underline">
+            <Link
+              href="/return"
+              className="rounded-full border border-line bg-white px-5 py-2 text-sm font-bold text-ink hover:bg-mist"
+            >
               Start a return
             </Link>
           </div>
-
-          {/* Deals card */}
-          <div className="rounded bg-white p-4 shadow-card">
-            <h2 className="mb-3 text-lg font-bold text-ink">Certified pre-owned deals</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {(listings.slice(0, 4).length ? listings.slice(0, 4) : Array.from({ length: 4 })).map(
-                (l, i) =>
-                  l ? (
-                    <Link
-                      key={(l as ListingDTO).id}
-                      href={`/marketplace/${(l as ListingDTO).id}`}
-                      className="overflow-hidden rounded border border-line text-center hover:shadow-card"
-                    >
-                      <ProductImage
-                        src={(l as ListingDTO).item?.imageUrl}
-                        category={(l as ListingDTO).item?.category}
-                        alt={(l as ListingDTO).title}
-                        className="h-20 w-full"
-                      />
-                      <span className="block py-1 text-xs font-bold text-priceRed">
-                        ₹{(l as ListingDTO).price.toLocaleString("en-IN")}
-                      </span>
-                    </Link>
-                  ) : (
-                    <div key={i} className="h-16 animate-pulse rounded bg-mist/60" />
-                  ),
-              )}
-            </div>
-            <Link href="/marketplace" className="mt-3 block text-sm font-medium text-link hover:text-linkHover hover:underline">
-              See all deals
-            </Link>
-          </div>
-
-          {/* Impact card */}
-          <div className="flex flex-col rounded bg-white p-4 shadow-card">
-            <h2 className="mb-3 text-lg font-bold text-ink">Your green impact</h2>
-            <div className="flex flex-1 items-center justify-center rounded bg-success/10 py-6 text-6xl">
-              🌱
-            </div>
-            <p className="mt-3 text-xs text-storm">
-              Earn Amazon Nemo Credits and redeem them for vouchers, perks & tree-planting.
-            </p>
-            <Link href="/impact" className="mt-2 text-sm font-medium text-link hover:text-linkHover hover:underline">
-              View impact &amp; redeem
-            </Link>
-          </div>
         </div>
+      </section>
 
-        {/* Deals row */}
-        {listings.length > 0 && (
-          <div className="mt-4 rounded bg-white p-4 shadow-card">
-            <h2 className="mb-3 text-lg font-bold text-ink">More second-life finds</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {listings.map((l) => (
-                <Link
-                  key={l.id}
-                  href={`/marketplace/${l.id}`}
-                  className="w-40 shrink-0 rounded border border-line p-3 hover:shadow-cardHover"
-                >
-                  <ProductImage
-                    src={l.item?.imageUrl}
-                    category={l.item?.category}
-                    alt={l.title}
-                    className="h-24 w-full rounded"
-                  />
-                  <div className="mt-2 line-clamp-2 text-xs text-ink">{l.title}</div>
-                  <div className="mt-1 font-bold text-priceRed">
-                    ₹{l.price.toLocaleString("en-IN")}
-                  </div>
-                </Link>
-              ))}
-            </div>
+      {/* Card grid — uniform-height white cards on the light page background */}
+      <section className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Shop by category */}
+        <article className="flex h-full flex-col rounded-card border border-line bg-white p-4 shadow-card">
+          <h2 className="mb-3 text-lg font-bold text-ink">Shop by category</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {categories.length === 0
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-20 animate-pulse rounded bg-mist/60" />
+                ))
+              : categories.slice(0, 4).map((c) => (
+                  <Link
+                    key={c.category}
+                    href={`/marketplace?q=${encodeURIComponent(c.category)}`}
+                    className="flex flex-col items-center justify-center gap-1 rounded bg-mist/50 p-3 text-center hover:bg-mist"
+                  >
+                    <span className="text-3xl">{categoryIcon(c.category)}</span>
+                    <span className="text-xs font-medium text-ink">{c.category}</span>
+                  </Link>
+                ))}
           </div>
-        )}
-      </div>
+          <Link
+            href="/marketplace"
+            className="mt-auto pt-3 text-sm font-medium text-link hover:text-linkHover hover:underline"
+          >
+            Shop all deals
+          </Link>
+        </article>
+
+        {/* Certified pre-owned deals */}
+        <article className="flex h-full flex-col rounded-card border border-line bg-white p-4 shadow-card">
+          <h2 className="mb-3 text-lg font-bold text-ink">Today&apos;s certified deals</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {deals.length === 0
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-24 animate-pulse rounded bg-mist/60" />
+                ))
+              : deals.map((l) => (
+                  <Link
+                    key={l.id}
+                    href={`/marketplace/${l.id}`}
+                    className="overflow-hidden rounded border border-line text-center hover:shadow-card"
+                  >
+                    <ProductImage
+                      src={l.item?.imageUrl}
+                      category={l.item?.category}
+                      alt={l.title}
+                      className="h-20 w-full"
+                    />
+                    <span className="block py-1 text-xs font-bold text-priceRed">
+                      ₹{l.price.toLocaleString("en-IN")}
+                    </span>
+                  </Link>
+                ))}
+          </div>
+          <Link
+            href="/marketplace"
+            className="mt-auto pt-3 text-sm font-medium text-link hover:text-linkHover hover:underline"
+          >
+            See all deals
+          </Link>
+        </article>
+
+        {/* Start a return */}
+        <article className="flex h-full flex-col rounded-card border border-line bg-white p-4 shadow-card">
+          <h2 className="mb-3 text-lg font-bold text-ink">Start a return</h2>
+          <div className="flex flex-1 items-center justify-center rounded bg-mist/50 py-8 text-6xl">
+            📦
+          </div>
+          <p className="mt-3 text-xs text-storm">
+            Return an eligible order — we verify it matches your purchase, grade it, and find its
+            second life.
+          </p>
+          <Link
+            href="/return"
+            className="mt-auto pt-2 text-sm font-medium text-link hover:text-linkHover hover:underline"
+          >
+            Start a return
+          </Link>
+        </article>
+
+        {/* Your green impact */}
+        <article className="flex h-full flex-col rounded-card border border-line bg-white p-4 shadow-card">
+          <h2 className="mb-3 text-lg font-bold text-ink">Your green impact</h2>
+          <div className="flex flex-1 items-center justify-center rounded bg-success/10 py-8 text-6xl">
+            🌱
+          </div>
+          <p className="mt-3 text-xs text-storm">
+            Earn Amazon Nemo Credits and redeem them for vouchers, perks &amp; tree-planting.
+          </p>
+          <Link
+            href="/impact"
+            className="mt-auto pt-2 text-sm font-medium text-link hover:text-linkHover hover:underline"
+          >
+            View impact &amp; redeem
+          </Link>
+        </article>
+      </section>
+
+      {/* More second-life finds */}
+      {listings.length > 0 && (
+        <section className="mt-4 rounded-card border border-line bg-white p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">More second-life finds</h2>
+            <Link
+              href="/marketplace"
+              className="text-sm font-medium text-link hover:text-linkHover hover:underline"
+            >
+              See more
+            </Link>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {listings.map((l) => (
+              <Link
+                key={l.id}
+                href={`/marketplace/${l.id}`}
+                className="w-40 shrink-0 rounded border border-line p-3 hover:shadow-cardHover"
+              >
+                <ProductImage
+                  src={l.item?.imageUrl}
+                  category={l.item?.category}
+                  alt={l.title}
+                  className="h-24 w-full rounded"
+                />
+                <div className="mt-2 line-clamp-2 text-xs text-ink">{l.title}</div>
+                <div className="mt-1 font-bold text-priceRed">
+                  ₹{l.price.toLocaleString("en-IN")}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

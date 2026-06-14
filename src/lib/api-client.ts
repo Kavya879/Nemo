@@ -150,10 +150,19 @@ export const apiClient = {
     ),
 
   // ── Return decision workflow ──
-  initiateReturnCase: (itemId: string, reason: string) =>
+  initiateReturnCase: (
+    itemId: string,
+    reason: string,
+    pickup?: { lat: number; lng: number },
+  ) =>
     request<ReturnCaseDTO>("/api/return-cases", {
       method: "POST",
-      body: JSON.stringify({ itemId, reason, userId: currentUserId() }),
+      body: JSON.stringify({
+        itemId,
+        reason,
+        userId: currentUserId(),
+        ...(pickup ? { pickupLat: pickup.lat, pickupLng: pickup.lng } : {}),
+      }),
     }),
   getReturnCase: (id: string) => request<ReturnCaseDTO>(`/api/return-cases/${id}`),
   gradeCase: (id: string, images: GradeImageInput[]) =>

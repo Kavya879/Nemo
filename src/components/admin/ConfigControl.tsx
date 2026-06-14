@@ -14,6 +14,9 @@ const FIELDS: Array<{ key: keyof AdminConfigDTO; label: string; step: number; hi
   { key: "repairabilityThreshold", label: "Repairability threshold", step: 0.05, hint: "≥ this ⇒ refurbish viable" },
   { key: "returnWindowDays", label: "Return window (days)", step: 1, hint: "Return-eligibility window" },
   { key: "transportCostPerKm", label: "Transport cost / km (₹)", step: 0.5, hint: "Reverse-logistics line-haul" },
+  { key: "verificationMatchThreshold", label: "Verification match threshold", step: 0.05, hint: "Min product-match to proceed to grading" },
+  { key: "fraudRiskThreshold", label: "Fraud-risk threshold", step: 0.05, hint: "≥ this ⇒ escalate to manual review" },
+  { key: "minQualityConfidence", label: "Min quality confidence", step: 0.05, hint: "Min grade confidence to auto-assign" },
 ];
 
 export function ConfigControl() {

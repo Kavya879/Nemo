@@ -17,7 +17,20 @@ import { EventTimeline } from "./EventTimeline";
 import { PhotoUploader, type UploadedPhoto } from "./PhotoUploader";
 import { VerificationPanel } from "@/components/VerificationPanel";
 import { ChallengePanel } from "@/components/ChallengePanel";
+import { ReturnPhotoGrid, OriginalVsReturn } from "@/components/ReturnPhotos";
 import type { VerificationAssessmentDTO } from "@/types/dto";
+
+/** Best-effort browser geolocation for warehouse-proximity routing. */
+function getPickupLocation(): Promise<{ lat: number; lng: number } | undefined> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(undefined);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(undefined),
+      { timeout: 8000 },
+    );
+  });
+}
 
 const REASONS = [
   "Size too small",
@@ -69,8 +82,11 @@ export function ReturnWorkflow() {
     setError(null);
     setBusy(true);
     try {
+      setBusyLabel("Locating pickup address…");
+      const pickup = await getPickupLocation();
+
       setBusyLabel("Initiating return request…");
-      const created = await apiClient.initiateReturnCase(selected.id, reason);
+      const created = await apiClient.initiateReturnCase(selected.id, reason, pickup);
       setRc(created);
 
       setBusyLabel("Verifying the product & AI grading your photos…");
@@ -265,6 +281,20 @@ export function ReturnWorkflow() {
       {busy && <LoadingState label={busyLabel} />}
       {error && <ErrorState message={error} />}
 
+      {/* Photos the customer submitted (saved with the case) */}
+      {rc.returnPhotos?.length > 0 && (
+        <Card className="mt-4">
+          <CardBody>
+            <h2 className="mb-2 font-bold">Submitted photos</h2>
+            <p className="mb-2 text-xs text-storm">
+              These were saved with your return and are shared with the inspection team and the
+              pickup partner.
+            </p>
+            <ReturnPhotoGrid photos={rc.returnPhotos} />
+          </CardBody>
+        </Card>
+      )}
+
       {/* Pre-grade product verification */}
       {verification && (
         <div className="mt-4">
@@ -397,6 +427,24 @@ export function ReturnWorkflow() {
                 Discard request (keep item)
               </Button>
             </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Delivery-partner verification: compare the item to how it was delivered */}
+      {inVerification && (
+        <Card className="mt-4 border-link/40">
+          <CardBody className="space-y-2">
+            <h2 className="font-bold">📦 Pickup verification</h2>
+            <p className="text-xs text-storm">
+              Confirm the collected item matches the original delivered product and isn&apos;t a
+              different or defective piece, then approve or reject the transfer.
+            </p>
+            <OriginalVsReturn
+              originalImageUrl={rc.item.imageUrl}
+              category={rc.item.category}
+              photos={rc.returnPhotos ?? []}
+            />
           </CardBody>
         </Card>
       )}

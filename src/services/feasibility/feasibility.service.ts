@@ -104,30 +104,20 @@ export function computeFeasibility(
       ? round2(inputs.expectedResaleValue / totalProcessingCost)
       : Infinity;
 
-  // Production decision combines THREE rules:
-  //  - proximity: close enough to an FC ⇒ just ship it back (don't list); OR
-  //  - economics: resale clears the logistics cost with margin.
-  // If neither holds (far + uneconomical), route to the Second Life window.
+  // Listing decision is PROXIMITY-driven: if the pickup is close enough to a
+  // fulfillment center, it goes back through the normal return channel and is
+  // NOT listed; otherwise it's listed in the Second Life marketplace for nearby
+  // buyers. The recovery economics below are still computed and surfaced for
+  // transparency, but they don't override the proximity rule.
   const proximityFeasible = inputs.distanceKm <= costs.warehouseProximityKm;
-  const meetsFloor = netRecoveryValue >= costs.minNetRecoveryValue;
-  const meetsRatio = recoveryRatio >= costs.feasibilityRatio;
-  const costFeasible = meetsFloor && meetsRatio;
-  const feasible = proximityFeasible || costFeasible;
+  const feasible = proximityFeasible;
 
   const km = Math.round(inputs.distanceKm);
   const reasoning = proximityFeasible
     ? `Pickup is ${km}km from the nearest fulfillment center (≤ ${costs.warehouseProximityKm}km) — return it through the normal channel. Not listed for resale.`
-    : costFeasible
-      ? `${km}km from the nearest FC, but expected resale ${inr(
-          inputs.expectedResaleValue,
-        )} still clears ${inr(totalProcessingCost)} of reverse-logistics cost (net ${inr(
-          netRecoveryValue,
-        )}, ratio ${recoveryRatio.toFixed(2)}) — worth shipping back.`
-      : `${km}km from the nearest FC and uneconomical to ship back (net ${inr(
-          netRecoveryValue,
-        )}, ratio ${recoveryRatio.toFixed(
-          2,
-        )} < ${costs.feasibilityRatio}) — list it in the Second Life marketplace for nearby buyers.`;
+    : `Pickup is ${km}km from the nearest FC (> ${costs.warehouseProximityKm}km) — list it in the Second Life marketplace for nearby buyers. (Reverse-logistics net recovery if shipped back: ${inr(
+        netRecoveryValue,
+      )}, ratio ${recoveryRatio.toFixed(2)}.)`;
 
   return {
     originalValue: round2(inputs.originalValue),

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import type { AdminCaseDetailDTO } from "@/types/dto";
 import { FeasibilityPanel } from "@/components/flow/FeasibilityPanel";
+import { OriginalVsReturn } from "@/components/ReturnPhotos";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 
@@ -50,6 +51,26 @@ export function DecisionExplorer({ id, onClose }: { id: string; onClose: () => v
                 <Badge tone="info">{d.case.pathLabel}</Badge>
               </div>
             </div>
+
+            {/* Submitted return photos vs the original product */}
+            {(d.case.returnPhotos?.length > 0 || d.case.imageUrl) && (
+              <div className="rounded bg-white p-4">
+                <h3 className="mb-2 font-bold">Return photos</h3>
+                {(d.case.productMatchConfidence != null || d.case.fraudRiskScore != null) && (
+                  <p className="mb-2 text-xs text-storm">
+                    {d.case.productMatchConfidence != null &&
+                      `Product match ${Math.round(d.case.productMatchConfidence * 100)}%`}
+                    {d.case.fraudRiskScore != null &&
+                      ` · fraud risk ${Math.round(d.case.fraudRiskScore * 100)}%`}
+                  </p>
+                )}
+                <OriginalVsReturn
+                  originalImageUrl={d.case.imageUrl}
+                  category={d.case.category}
+                  photos={d.case.returnPhotos ?? []}
+                />
+              </div>
+            )}
 
             {/* Smart Router — inputs → rules that fired → final path */}
             <div className="rounded bg-white p-4">

@@ -67,7 +67,7 @@ export function createCheckoutService() {
       }
 
       const totals = await creditsService.totals(userId);
-      const orderRef = `RL-${Date.now().toString(36).toUpperCase()}`;
+      const orderRef = `AN-${Date.now().toString(36).toUpperCase()}`;
 
       return {
         orderRef,

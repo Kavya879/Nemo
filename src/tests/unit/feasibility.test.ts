@@ -37,7 +37,21 @@ describe("feasibility engine — computeFeasibility", () => {
     expect(r.storageCost).toBe(80); // 8 * 10
     expect(r.totalProcessingCost).toBe(860);
     expect(r.netRecoveryValue).toBe(2940); // 3800 - 860
-    expect(r.decision).toBe("FEASIBLE");
+    // 200km > 50km proximity ⇒ listed for Second Life (proximity-driven rule),
+    // even though shipping back would be economical (shown for transparency).
+    expect(r.decision).toBe("NOT_FEASIBLE");
+  });
+
+  it("lists far items even when shipping back would be economical (proximity rule)", () => {
+    const r = computeFeasibility(
+      { grade: "A", originalValue: 9000, estimatedCurrentValue: 7600, expectedResaleValue: 7600, distanceKm: 505 },
+      COSTS,
+    );
+    expect(r.proximityFeasible).toBe(false);
+    expect(r.netRecoveryValue).toBeGreaterThan(0); // economical to ship…
+    expect(r.recoveryRatio).toBeGreaterThan(1.15);
+    expect(r.decision).toBe("NOT_FEASIBLE"); // …but proximity says LIST
+    expect(r.reasoning).toMatch(/Second Life/i);
   });
 
   it("scales repackaging cost up for worse grades", () => {

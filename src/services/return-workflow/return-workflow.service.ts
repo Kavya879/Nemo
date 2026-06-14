@@ -91,6 +91,8 @@ export function createReturnWorkflowService() {
       itemId: string;
       reason: string;
       userId?: string;
+      pickupLat?: number;
+      pickupLng?: number;
     }): Promise<ReturnCaseWithRelations> {
       const userId = input.userId ?? "demo-user";
       const item = await itemRepository.findById(input.itemId);
@@ -101,11 +103,14 @@ export function createReturnWorkflowService() {
         throw new ConflictError(eligibility.reason ?? "Item is not eligible for return.");
       }
 
+      const hasPickup =
+        typeof input.pickupLat === "number" && typeof input.pickupLng === "number";
       const created = await returnCaseRepository.create({
         userId,
         reason: input.reason,
         orderId: eligibility.orderId,
         status: "INITIATED",
+        ...(hasPickup ? { pickupLat: input.pickupLat, pickupLng: input.pickupLng } : {}),
         item: { connect: { id: input.itemId } },
       });
 
@@ -145,10 +150,18 @@ export function createReturnWorkflowService() {
       });
       const verRecord = await verificationRepository.findLatestForItem(c.itemId);
       const scorePct = (n: number) => Math.round(n * 100);
+      // Persist the submitted photos on the case so the admin and the pickup
+      // partner can view them and compare against the original product.
+      const returnPhotos = input.images.map((i) => ({
+        data: i.base64,
+        mimeType: i.mimeType,
+        role: i.role,
+      })) as unknown as Prisma.InputJsonValue;
       const verPatch = {
         verificationResultId: verRecord?.id ?? null,
         productMatchConfidence: verification.productMatchConfidence,
         fraudRiskScore: verification.fraudRiskScore,
+        returnPhotos,
       };
       const verData = {
         verification: {
@@ -248,17 +261,25 @@ export function createReturnWorkflowService() {
       assertStatus(c.status, ["GRADED"], "analyze");
       if (!c.grade) throw new ConflictError("Case has no grade to analyze.");
 
+      // Pickup origin drives BOTH warehouse-proximity routing and nearby matching:
+      // close to an FC ⇒ normal return, far ⇒ list for nearby buyers. Use the
+      // case's captured pickup location, falling back to the demo center.
+      const origin =
+        c.pickupLat != null && c.pickupLng != null
+          ? { lat: c.pickupLat, lng: c.pickupLng }
+          : CUSTOMER_LOCATION;
+
       // Nearby demand near the customer (feeds resale pricing + later buyer search).
       const nearby = await matchingService.findNearby({
         category: c.item.category,
-        origin: CUSTOMER_LOCATION,
+        origin,
       });
 
       const feasibility = await feasibilityService.analyze({
         grade: c.grade,
         originalPrice: c.item.originalPrice,
         category: c.item.category,
-        customerLocation: CUSTOMER_LOCATION,
+        customerLocation: origin,
         demandCount: nearby.length,
       });
 
@@ -344,9 +365,13 @@ export function createReturnWorkflowService() {
         throw new ConflictError("Second Life window has expired; run liquidation instead.");
       }
 
+      const origin =
+        c.pickupLat != null && c.pickupLng != null
+          ? { lat: c.pickupLat, lng: c.pickupLng }
+          : CUSTOMER_LOCATION;
       const matches = await matchingService.findNearby({
         category: c.item.category,
-        origin: CUSTOMER_LOCATION,
+        origin,
       });
       if (matches.length === 0) {
         return { case: c, found: false };

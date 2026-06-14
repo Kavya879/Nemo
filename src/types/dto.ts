@@ -316,6 +316,10 @@ export interface AdminCaseDetailDTO {
     reservedBuyerName: string | null;
     reservedDistanceKm: number | null;
     pathLabel: string;
+    imageUrl: string | null;
+    productMatchConfidence: number | null;
+    fraudRiskScore: number | null;
+    returnPhotos: { data: string; mimeType: string; role: string }[];
   };
   feasibility: FeasibilityDTO | null;
   routing: RoutingResultDTO;
@@ -372,6 +376,9 @@ export interface AdminConfigDTO {
   minNetRecoveryValue: number;
   demandPriceMultiplier: number;
   transportCostPerKm: number;
+  verificationMatchThreshold: number;
+  fraudRiskThreshold: number;
+  minQualityConfidence: number;
   priceBands: unknown;
   creditsPerAction: unknown;
   gradeDefaultRoutes: unknown;
@@ -449,6 +456,9 @@ export interface ReturnCaseDTO {
   decision: "FEASIBLE" | "NOT_FEASIBLE" | null;
   grade: Grade | null;
   gradeConfidence: number | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  returnPhotos: { data: string; mimeType: string; role: string }[];
   verificationResultId: string | null;
   productMatchConfidence: number | null;
   fraudRiskScore: number | null;

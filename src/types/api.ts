@@ -20,6 +20,10 @@ export const ConfigPatchSchema = z
     minNetRecoveryValue: z.coerce.number().optional(),
     demandPriceMultiplier: z.coerce.number().positive().optional(),
     transportCostPerKm: z.coerce.number().nonnegative().optional(),
+    // Pre-grade verification thresholds (tunable live)
+    verificationMatchThreshold: z.coerce.number().min(0).max(1).optional(),
+    fraudRiskThreshold: z.coerce.number().min(0).max(1).optional(),
+    minQualityConfidence: z.coerce.number().min(0).max(1).optional(),
   })
   .refine((o) => Object.keys(o).length > 0, "Provide at least one config field to update.");
 
@@ -48,6 +52,9 @@ export const InitiateReturnCaseSchema = z.object({
   itemId: z.string().min(1),
   reason: z.string().min(1),
   userId: z.string().optional(),
+  /** Pickup origin — drives warehouse-proximity routing + nearby matching. */
+  pickupLat: z.number().min(-90).max(90).optional(),
+  pickupLng: z.number().min(-180).max(180).optional(),
 });
 
 export const GradeImagesSchema = z.object({
