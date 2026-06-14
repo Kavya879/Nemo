@@ -22,6 +22,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       comment: body.comment,
       userId: body.userId ?? "demo-user",
       userName: body.userName,
+      evidence: body.evidence,
       intendedPrice: body.intendedPrice,
       intendedPricePct: body.intendedPricePct,
     });

@@ -165,7 +165,7 @@ export function Navbar() {
       {/* Department bar */}
       <div className="flex items-center gap-1 bg-slate px-3 py-1 text-sm text-white">
         <Link
-          href="/products"
+          href="/"
           className="flex items-center gap-1 rounded border border-transparent px-2 py-1 font-bold hover:border-white"
         >
           ☰ All

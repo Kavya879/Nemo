@@ -16,6 +16,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     const body = await parseJsonBody(request, RequestVerificationSchema);
     const rc = await returnWorkflowService.get(params.id);
+    // Attach the photos the customer already submitted with the return so the
+    // reviewer can see exactly what the AI assessed.
+    const submitted = (rc.returnPhotos as unknown as
+      | { data: string; mimeType?: string; role?: string }[]
+      | null) ?? [];
+    const evidence = submitted.map((p) => ({
+      data: p.data,
+      mimeType: p.mimeType ?? "image/jpeg",
+      role: p.role ?? "other",
+    }));
     const challenge = await challengeService.openVerification({
       itemId: rc.itemId,
       returnCaseId: rc.id,
@@ -24,6 +34,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       comment: body.comment,
       userId: body.userId ?? rc.userId,
       userName: body.userName,
+      evidence: body.evidence ?? evidence,
     });
     return ok(challenge, 201);
   } catch (error) {

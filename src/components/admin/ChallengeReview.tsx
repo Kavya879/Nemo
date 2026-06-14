@@ -262,9 +262,11 @@ function ChallengeDetail({
           </div>
         )}
 
-        {/* Seller's case */}
+        {/* Requester's case + the photos they submitted */}
         <div className="mt-3 rounded border border-line bg-white p-3">
-          <h3 className="mb-1 text-sm font-bold">Seller&apos;s argument</h3>
+          <h3 className="mb-1 text-sm font-bold">
+            {isVerification ? "Request details & submitted photos" : "Seller's argument"}
+          </h3>
           <p className="text-sm">
             <span className="font-semibold">{challenge.reason}:</span> {challenge.sellerComment}
           </p>

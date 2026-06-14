@@ -306,7 +306,13 @@ export const apiClient = {
   },
   requestSellVerification: (
     itemId: string,
-    input: { reason: string; comment: string; intendedPrice: number; intendedPricePct: number },
+    input: {
+      reason: string;
+      comment: string;
+      intendedPrice: number;
+      intendedPricePct: number;
+      evidence?: ChallengeEvidenceInput[];
+    },
   ) => {
     const u = getCurrentUser();
     return request<ChallengeDTO>(`/api/items/${itemId}/request-verification`, {

@@ -177,6 +177,8 @@ export const RequestVerificationSchema = z.object({
   comment: z.string().min(1),
   userId: z.string().optional(),
   userName: z.string().optional(),
+  /** The photos the user submitted — shown to the reviewer as evidence. */
+  evidence: z.array(ChallengeEvidenceSchema).max(8).optional(),
   /** Sell flow only: the intended listing price (to auto-list on accept). */
   intendedPrice: z.number().positive().optional(),
   intendedPricePct: z.number().min(0).max(2).optional(),

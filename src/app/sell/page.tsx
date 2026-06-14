@@ -166,6 +166,8 @@ function SellInner() {
         comment: `Automated verification failed ${verifyFails} time(s), but the item is genuine. Requesting a human review of the photos.`,
         intendedPrice: ask,
         intendedPricePct: Number((ask / mrp).toFixed(3)),
+        // Send the uploaded photos so the reviewer sees exactly what the AI assessed.
+        evidence: photos.map((p) => ({ data: p.base64, mimeType: p.mimeType, role: p.role })),
       });
       setAdminRequested(true);
     } catch (err) {

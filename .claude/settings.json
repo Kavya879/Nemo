@@ -16,7 +16,8 @@
       "Bash(git commit -q -m 'Real CLIP grading model + reference images + real Amazon FCs + dynamic map location \\(#6-9\\) *)",
       "Bash(git commit -q -m 'Admin-only access, warehouse-proximity routing, Amazon-look image polish \\(#1-3\\) *)",
       "PowerShell(npx prisma db seed 2>&1)",
-      "PowerShell(\"=== BUILD ===\")"
+      "PowerShell(\"=== BUILD ===\")",
+      "Bash(PORT=3100 node node_modules/next/dist/bin/next start -p 3100)"
     ]
   }
 }
