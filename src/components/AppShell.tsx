@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { SiteFooter } from "@/components/SiteFooter";
 import { useUser } from "@/lib/user-context";
 import { isAdmin } from "@/lib/session";
+import { NotificationsProvider } from "@/lib/notifications";
 import { LoadingState } from "@/components/flow/States";
 
 /**
@@ -28,7 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [redirectingAdmin, router]);
 
   return (
-    <>
+    <NotificationsProvider>
       <Navbar />
       <main className="min-h-[calc(100vh-6rem)]">
         {redirectingAdmin ? (
@@ -39,6 +40,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       {/* The customer footer is storefront chrome — hidden for admins. */}
       {!admin && <SiteFooter />}
-    </>
+    </NotificationsProvider>
   );
 }

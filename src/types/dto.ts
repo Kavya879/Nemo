@@ -113,6 +113,18 @@ export interface ReturnDealDTO {
   badge: "In Return Pipeline" | "Arriving Soon" | "Smart Deal";
 }
 
+/** A single user-facing notification (derived activity-feed item). */
+export interface NotificationDTO {
+  id: string;
+  type: "challenge" | "return" | "sale";
+  title: string;
+  message: string;
+  icon: string;
+  level: "info" | "success" | "warning";
+  href?: string;
+  createdAt: string;
+}
+
 export type StockStatusDTO = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
 
 /** A brand-new catalog product (standard inventory ecosystem). */

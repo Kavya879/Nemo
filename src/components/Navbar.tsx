@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart";
 import { useUser } from "@/lib/user-context";
 import { isAdmin } from "@/lib/session";
 import { useCategories } from "@/lib/use-categories";
+import { useNotifications } from "@/lib/notifications";
 import { Logo } from "@/components/Logo";
 import { DeliverTo } from "@/components/DeliverTo";
 
@@ -33,6 +34,7 @@ export function Navbar() {
   const { count } = useCart();
   const { user } = useUser();
   const { categories } = useCategories();
+  const { unread } = useNotifications();
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -143,6 +145,23 @@ export function Navbar() {
         >
           <div className="text-xs">Returns</div>
           <div className="text-sm font-bold">&amp; Orders</div>
+        </Link>
+
+        {/* Notifications */}
+        <Link
+          href="/notifications"
+          aria-label="Notifications"
+          title="Notifications"
+          className="relative flex items-end rounded border border-transparent px-2 py-1 hover:border-white"
+        >
+          <span className="relative text-2xl">
+            🔔
+            {unread > 0 && (
+              <span className="absolute -right-1.5 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-ember px-1 text-xs font-bold text-squid">
+                {unread}
+              </span>
+            )}
+          </span>
         </Link>
 
         {/* Cart */}

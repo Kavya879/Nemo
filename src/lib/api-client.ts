@@ -23,6 +23,7 @@ import type {
   ListingDTO,
   ProductDTO,
   ReturnDealDTO,
+  NotificationDTO,
   MatchResultDTO,
   PreventionResultDTO,
   PriceResultDTO,
@@ -426,6 +427,10 @@ export const apiClient = {
 
   // ── Return-in-Transit deals (early sale from the return pipeline) ──
   getReturnDeals: () => request<ReturnDealDTO[]>("/api/return-deals"),
+
+  // ── User notifications (activity feed) ──
+  getNotifications: (userId: string = currentUserId()) =>
+    request<NotificationDTO[]>(`/api/notifications?userId=${encodeURIComponent(userId)}`),
 
   match: (category: string, lat: number, lng: number, radiusKm?: number) => {
     const q = new URLSearchParams({
