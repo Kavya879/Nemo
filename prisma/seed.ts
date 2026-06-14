@@ -76,6 +76,7 @@ async function seedConfig() {
     warehouseLng: 76.9558,
     minNetRecoveryValue: 0,
     feasibilityRatio: 1.15,
+    warehouseProximityKm: 50,
     secondLifeWindowDays: 7,
     depreciationByGrade,
   };
@@ -536,6 +537,8 @@ function feasibilityFor(originalPrice: number, grade: Grade, demand: number) {
     netRecoveryValue,
     recoveryRatio,
     distanceKm: WAREHOUSE_DISTANCE_KM,
+    nearestWarehouse: "Amazon FC CJB (Coimbatore)",
+    proximityFeasible: false,
     decision: feasible ? "FEASIBLE" : "NOT_FEASIBLE",
     reasoning: feasible
       ? `Expected resale ₹${expectedResaleValue} vs ₹${totalProcessingCost} processing cost → ₹${netRecoveryValue} net (ratio ${recoveryRatio}). Return is viable.`

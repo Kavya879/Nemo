@@ -11,7 +11,7 @@
 export interface SessionUser {
   id: string;
   name: string;
-  role: "owner" | "buyer";
+  role: "owner" | "buyer" | "admin";
 }
 
 const KEY = "reloop-user-v1";
@@ -23,12 +23,17 @@ export const DEFAULT_USER: SessionUser = {
   role: "owner",
 };
 
-/** Quick-switch demo accounts so two parties can be simulated immediately. */
+/** Quick-switch demo accounts so the parties can be simulated immediately. */
 export const PRESET_USERS: SessionUser[] = [
   DEFAULT_USER,
   { id: "buyer-asha", name: "Asha", role: "buyer" },
   { id: "buyer-ravi", name: "Ravi", role: "buyer" },
+  { id: "admin-ops", name: "Ops Admin", role: "admin" },
 ];
+
+export function isAdmin(user: SessionUser): boolean {
+  return user.role === "admin";
+}
 
 export function getCurrentUser(): SessionUser {
   if (typeof window === "undefined") return DEFAULT_USER;

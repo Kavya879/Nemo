@@ -5,11 +5,8 @@ import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import type { EligibleOrderDTO } from "@/types/dto";
 import { Badge } from "@/components/ui/Badge";
+import { ProductImage } from "@/components/ProductImage";
 import { LoadingState, ErrorState } from "@/components/flow/States";
-
-function categoryIcon(cat?: string) {
-  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : "📦";
-}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<EligibleOrderDTO[] | null>(null);
@@ -75,9 +72,12 @@ export default function OrdersPage() {
                 </span>
               </div>
               <div className="flex items-center gap-4 p-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded bg-mist/50 text-4xl">
-                  {categoryIcon(it.category)}
-                </div>
+                <ProductImage
+                  src={it.imageUrl}
+                  category={it.category}
+                  alt={it.name}
+                  className="h-20 w-20 shrink-0 rounded"
+                />
                 <div className="flex-1">
                   <h3 className="font-semibold text-ink">{it.name}</h3>
                   <p className="text-xs text-storm">

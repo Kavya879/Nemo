@@ -255,6 +255,7 @@ export interface AdminPreventionDTO {
 export interface AdminConfigDTO {
   matchRadiusKm: number;
   feasibilityRatio: number;
+  warehouseProximityKm: number;
   peerToPeerMinBuyers: number;
   repairabilityThreshold: number;
   returnWindowDays: number;
@@ -291,6 +292,7 @@ export interface FeasibilityDTO {
   recoveryRatio: number;
   distanceKm: number;
   nearestWarehouse?: string;
+  proximityFeasible?: boolean;
   decision: "FEASIBLE" | "NOT_FEASIBLE";
   reasoning: string;
 }

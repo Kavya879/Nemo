@@ -37,6 +37,7 @@ export function ProductDetail({ id }: { id: string }) {
       price: l.price,
       category: l.item?.category ?? "general",
       originalPrice: l.item?.originalPrice ?? l.price,
+      imageUrl: l.item?.imageUrl ?? null,
     };
   }
 

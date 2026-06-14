@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import type { ListingDTO } from "@/types/dto";
+import { ProductImage } from "@/components/ProductImage";
 
 const CATEGORIES = [
   { label: "Footwear", icon: "👟" },
@@ -11,10 +12,6 @@ const CATEGORIES = [
   { label: "Apparel", icon: "🧥" },
   { label: "Home", icon: "🍳" },
 ];
-
-function categoryIcon(cat?: string) {
-  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : "📦";
-}
 
 export default function HomePage() {
   const [listings, setListings] = useState<ListingDTO[]>([]);
@@ -86,10 +83,15 @@ export default function HomePage() {
                     <Link
                       key={(l as ListingDTO).id}
                       href={`/marketplace/${(l as ListingDTO).id}`}
-                      className="flex flex-col items-center gap-1 rounded bg-mist/60 p-2 text-center hover:bg-mist"
+                      className="overflow-hidden rounded border border-line text-center hover:shadow-card"
                     >
-                      <span className="text-2xl">{categoryIcon((l as ListingDTO).item?.category)}</span>
-                      <span className="text-xs font-bold text-priceRed">
+                      <ProductImage
+                        src={(l as ListingDTO).item?.imageUrl}
+                        category={(l as ListingDTO).item?.category}
+                        alt={(l as ListingDTO).title}
+                        className="h-20 w-full"
+                      />
+                      <span className="block py-1 text-xs font-bold text-priceRed">
                         ₹{(l as ListingDTO).price.toLocaleString("en-IN")}
                       </span>
                     </Link>
@@ -129,9 +131,12 @@ export default function HomePage() {
                   href={`/marketplace/${l.id}`}
                   className="w-40 shrink-0 rounded border border-line p-3 hover:shadow-cardHover"
                 >
-                  <div className="flex h-24 items-center justify-center rounded bg-mist/60 text-4xl">
-                    {categoryIcon(l.item?.category)}
-                  </div>
+                  <ProductImage
+                    src={l.item?.imageUrl}
+                    category={l.item?.category}
+                    alt={l.title}
+                    className="h-24 w-full rounded"
+                  />
                   <div className="mt-2 line-clamp-2 text-xs text-ink">{l.title}</div>
                   <div className="mt-1 font-bold text-priceRed">
                     ₹{l.price.toLocaleString("en-IN")}

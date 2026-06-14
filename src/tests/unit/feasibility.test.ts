@@ -14,6 +14,7 @@ const COSTS: FeasibilityCostModel = {
   estimatedStorageDays: 10,
   minNetRecoveryValue: 0,
   feasibilityRatio: 1.15,
+  warehouseProximityKm: 50,
 };
 
 describe("feasibility engine — computeFeasibility", () => {
@@ -47,26 +48,36 @@ describe("feasibility engine — computeFeasibility", () => {
     expect(d.repackagingCost).toBe(50); // 25 * 2 (grade D)
   });
 
-  it("declares NOT_FEASIBLE when net recovery is negative", () => {
+  it("declares NOT_FEASIBLE when far from an FC and net recovery is negative", () => {
     const r = computeFeasibility(
       { grade: "D", originalValue: 3500, estimatedCurrentValue: 700, expectedResaleValue: 600, distanceKm: 228 },
       COSTS,
     );
+    expect(r.proximityFeasible).toBe(false);
     expect(r.netRecoveryValue).toBeLessThan(0);
     expect(r.decision).toBe("NOT_FEASIBLE");
     expect(r.reasoning).toMatch(/Second Life/i);
   });
 
-  it("declares NOT_FEASIBLE when the recovery ratio is below threshold even if net is positive", () => {
-    // Resale just above cost → positive net but recovery ratio < 1.15.
-    // Costs: pickup 700 + handling 40 + inspection 35 + repackaging 37.5 (C) + storage 80 = 892.5
+  it("declares NOT_FEASIBLE when far + positive net but ratio below threshold", () => {
+    // Far (300km) so proximity doesn't apply; resale just above cost → ratio < 1.15.
     const r = computeFeasibility(
-      { grade: "C", originalValue: 2000, estimatedCurrentValue: 900, expectedResaleValue: 1000, distanceKm: 0 },
-      { ...COSTS, pickupBaseCost: 700 },
+      { grade: "C", originalValue: 2000, estimatedCurrentValue: 900, expectedResaleValue: 1300, distanceKm: 300 },
+      COSTS,
     );
-    expect(r.totalProcessingCost).toBe(892.5);
-    expect(r.netRecoveryValue).toBeGreaterThan(0); // 107.5
-    expect(r.recoveryRatio).toBeLessThan(1.15); // ~1.12
+    expect(r.proximityFeasible).toBe(false);
+    expect(r.netRecoveryValue).toBeGreaterThan(0);
+    expect(r.recoveryRatio).toBeLessThan(1.15);
     expect(r.decision).toBe("NOT_FEASIBLE");
+  });
+
+  it("#2: near an FC ⇒ FEASIBLE (normal return) even when economics are poor", () => {
+    const r = computeFeasibility(
+      { grade: "D", originalValue: 1000, estimatedCurrentValue: 200, expectedResaleValue: 120, distanceKm: 10 },
+      COSTS,
+    );
+    expect(r.proximityFeasible).toBe(true);
+    expect(r.decision).toBe("FEASIBLE");
+    expect(r.reasoning).toMatch(/normal channel/i);
   });
 });

@@ -13,6 +13,7 @@ export const ConfigPatchSchema = z
   .object({
     matchRadiusKm: z.coerce.number().positive().optional(),
     feasibilityRatio: z.coerce.number().positive().optional(),
+    warehouseProximityKm: z.coerce.number().positive().optional(),
     peerToPeerMinBuyers: z.coerce.number().int().nonnegative().optional(),
     repairabilityThreshold: z.coerce.number().min(0).max(1).optional(),
     returnWindowDays: z.coerce.number().int().positive().optional(),

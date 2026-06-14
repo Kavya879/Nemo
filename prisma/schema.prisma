@@ -371,6 +371,9 @@ model RoutingConfig {
   minNetRecoveryValue Float @default(0)
   /// Minimum resale-value-to-cost ratio for a return to be feasible.
   feasibilityRatio Float @default(1.15)
+  /// If the pickup is within this many km of a fulfillment center, return it
+  /// normally (don't list for resale); beyond it, list for nearby buyers.
+  warehouseProximityKm Float @default(50)
   /// Length of the Second Life opportunity window (days).
   secondLifeWindowDays Int @default(7)
 

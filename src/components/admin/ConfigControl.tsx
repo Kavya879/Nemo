@@ -8,6 +8,7 @@ import { LoadingState, ErrorState } from "@/components/flow/States";
 
 const FIELDS: Array<{ key: keyof AdminConfigDTO; label: string; step: number; hint: string }> = [
   { key: "matchRadiusKm", label: "Match radius (km)", step: 0.5, hint: "How far we search for nearby buyers" },
+  { key: "warehouseProximityKm", label: "Warehouse proximity (km)", step: 5, hint: "≤ this ⇒ ship back normally (not listed)" },
   { key: "feasibilityRatio", label: "Feasibility ratio", step: 0.05, hint: "Min resale-to-cost ratio to return" },
   { key: "peerToPeerMinBuyers", label: "Min nearby buyers (P2P)", step: 1, hint: "Buyers needed for peer-to-peer" },
   { key: "repairabilityThreshold", label: "Repairability threshold", step: 0.05, hint: "≥ this ⇒ refurbish viable" },

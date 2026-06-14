@@ -22,6 +22,7 @@ export interface CartLine {
   price: number;
   category: string;
   originalPrice: number;
+  imageUrl?: string | null;
   qty: number;
 }
 

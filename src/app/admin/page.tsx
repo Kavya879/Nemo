@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import type { AdminMapDTO } from "@/types/dto";
 import { cn } from "@/lib/cn";
+import { useUser } from "@/lib/user-context";
+import { isAdmin } from "@/lib/session";
+import { Button } from "@/components/ui/Button";
 import { CommandCenter } from "@/components/admin/CommandCenter";
 import { Analytics } from "@/components/admin/Analytics";
 import { ConfigControl } from "@/components/admin/ConfigControl";
@@ -120,7 +124,26 @@ function MapTab() {
 }
 
 export default function AdminPage() {
+  const { user } = useUser();
   const [tab, setTab] = useState<Tab>("Command Center");
+
+  // #1: the operations console is restricted to admin accounts.
+  if (!isAdmin(user)) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 text-center">
+        <div className="mb-3 text-5xl">🔒</div>
+        <h1 className="text-2xl font-bold">Admin access only</h1>
+        <p className="mt-2 text-sm text-storm">
+          The Operations Console is restricted to Amazon/ReLoop operations staff. You&apos;re
+          signed in as <span className="font-semibold">{user.name}</span> ({user.role}).
+        </p>
+        <Link href="/login" className="mt-5 inline-block">
+          <Button size="lg">Switch to an admin account</Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-4">

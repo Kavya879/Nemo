@@ -33,6 +33,8 @@ export interface FeasibilityCostModel {
   estimatedStorageDays: number;
   minNetRecoveryValue: number;
   feasibilityRatio: number;
+  /** Within this distance to an FC ⇒ ship back normally (don't list for resale). */
+  warehouseProximityKm: number;
 }
 
 export interface FeasibilityInputs {
@@ -61,6 +63,8 @@ export interface FeasibilityResult {
   recoveryRatio: number;
   distanceKm: number;
   nearestWarehouse?: string;
+  /** True when the pickup is close enough to an FC to just ship it back. */
+  proximityFeasible: boolean;
   decision: "FEASIBLE" | "NOT_FEASIBLE";
   reasoning: string;
 }
@@ -100,24 +104,30 @@ export function computeFeasibility(
       ? round2(inputs.expectedResaleValue / totalProcessingCost)
       : Infinity;
 
-  // Production decision: BOTH an absolute floor and a margin ratio must hold.
+  // Production decision combines THREE rules:
+  //  - proximity: close enough to an FC ⇒ just ship it back (don't list); OR
+  //  - economics: resale clears the logistics cost with margin.
+  // If neither holds (far + uneconomical), route to the Second Life window.
+  const proximityFeasible = inputs.distanceKm <= costs.warehouseProximityKm;
   const meetsFloor = netRecoveryValue >= costs.minNetRecoveryValue;
   const meetsRatio = recoveryRatio >= costs.feasibilityRatio;
-  const feasible = meetsFloor && meetsRatio;
+  const costFeasible = meetsFloor && meetsRatio;
+  const feasible = proximityFeasible || costFeasible;
 
-  const reasoning = feasible
-    ? `Returning is economically viable: expected resale ${inr(
-        inputs.expectedResaleValue,
-      )} against ${inr(totalProcessingCost)} of reverse-logistics cost leaves ${inr(
-        netRecoveryValue,
-      )} net recovery (ratio ${recoveryRatio.toFixed(2)} ≥ ${costs.feasibilityRatio}). Approve the return.`
-    : `Returning is NOT viable: ${inr(
-        totalProcessingCost,
-      )} of pickup, ${Math.round(inputs.distanceKm)}km transport, handling, inspection, repackaging and storage cost leaves only ${inr(
-        netRecoveryValue,
-      )} net recovery (ratio ${recoveryRatio.toFixed(
-        2,
-      )} < ${costs.feasibilityRatio}). Route to the Second Life opportunity window instead.`;
+  const km = Math.round(inputs.distanceKm);
+  const reasoning = proximityFeasible
+    ? `Pickup is ${km}km from the nearest fulfillment center (≤ ${costs.warehouseProximityKm}km) — return it through the normal channel. Not listed for resale.`
+    : costFeasible
+      ? `${km}km from the nearest FC, but expected resale ${inr(
+          inputs.expectedResaleValue,
+        )} still clears ${inr(totalProcessingCost)} of reverse-logistics cost (net ${inr(
+          netRecoveryValue,
+        )}, ratio ${recoveryRatio.toFixed(2)}) — worth shipping back.`
+      : `${km}km from the nearest FC and uneconomical to ship back (net ${inr(
+          netRecoveryValue,
+        )}, ratio ${recoveryRatio.toFixed(
+          2,
+        )} < ${costs.feasibilityRatio}) — list it in the Second Life marketplace for nearby buyers.`;
 
   return {
     originalValue: round2(inputs.originalValue),
@@ -133,6 +143,7 @@ export function computeFeasibility(
     netRecoveryValue,
     recoveryRatio,
     distanceKm: round2(inputs.distanceKm),
+    proximityFeasible,
     decision: feasible ? "FEASIBLE" : "NOT_FEASIBLE",
     reasoning,
   };
@@ -194,6 +205,7 @@ export function createFeasibilityService() {
           estimatedStorageDays: config.estimatedStorageDays,
           minNetRecoveryValue: config.minNetRecoveryValue,
           feasibilityRatio: config.feasibilityRatio,
+          warehouseProximityKm: config.warehouseProximityKm,
         },
       );
       return { ...result, nearestWarehouse: warehouse.name };

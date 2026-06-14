@@ -13,7 +13,8 @@
       "Bash(node -e ' *)",
       "Bash(curl -s http://localhost:3000/api/admin/map)",
       "Bash(python -c \"import sys,json;d=json.load\\(sys.stdin\\)['data'];print\\(' nearest:',d['nearestWarehouse']\\)\")",
-      "Bash(git commit -q -m 'Real CLIP grading model + reference images + real Amazon FCs + dynamic map location \\(#6-9\\) *)"
+      "Bash(git commit -q -m 'Real CLIP grading model + reference images + real Amazon FCs + dynamic map location \\(#6-9\\) *)",
+      "Bash(git commit -q -m 'Admin-only access, warehouse-proximity routing, Amazon-look image polish \\(#1-3\\) *)"
     ]
   }
 }

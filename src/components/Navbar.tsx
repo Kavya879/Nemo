@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { useUser } from "@/lib/user-context";
+import { isAdmin } from "@/lib/session";
 
 /**
  * Amazon-style global header: logo, deliver-to, full search bar with category
@@ -137,7 +138,7 @@ export function Navbar() {
         >
           ☰ All
         </Link>
-        {DEPARTMENTS.map((d) => (
+        {DEPARTMENTS.filter((d) => d.href !== "/admin" || isAdmin(user)).map((d) => (
           <Link
             key={d.label}
             href={d.href}

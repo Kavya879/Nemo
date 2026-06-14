@@ -4,10 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/Button";
-
-function categoryIcon(cat?: string) {
-  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : "📦";
-}
+import { ProductImage } from "@/components/ProductImage";
 
 export default function CartPage() {
   const router = useRouter();
@@ -42,11 +39,13 @@ export default function CartPage() {
         <ul className="divide-y divide-line">
           {lines.map((l) => (
             <li key={l.listingId} className="flex gap-4 py-4">
-              <Link
-                href={`/marketplace/${l.listingId}`}
-                className="flex h-24 w-24 shrink-0 items-center justify-center rounded bg-mist/50 text-4xl"
-              >
-                {categoryIcon(l.category)}
+              <Link href={`/marketplace/${l.listingId}`} className="shrink-0">
+                <ProductImage
+                  src={l.imageUrl}
+                  category={l.category}
+                  alt={l.title}
+                  className="h-24 w-24 rounded"
+                />
               </Link>
               <div className="flex-1">
                 <Link href={`/marketplace/${l.listingId}`} className="font-medium text-ink hover:text-linkHover">
