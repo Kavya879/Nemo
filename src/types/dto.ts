@@ -167,3 +167,76 @@ export interface ReturnDTO {
   photos: string[];
   createdAt: string;
 }
+
+// ── Return workflow ──
+export interface FeasibilityDTO {
+  originalValue: number;
+  estimatedCurrentValue: number;
+  pickupCost: number;
+  transportationCost: number;
+  warehouseHandlingCost: number;
+  inspectionCost: number;
+  repackagingCost: number;
+  storageCost: number;
+  totalProcessingCost: number;
+  expectedResaleValue: number;
+  netRecoveryValue: number;
+  recoveryRatio: number;
+  distanceKm: number;
+  decision: "FEASIBLE" | "NOT_FEASIBLE";
+  reasoning: string;
+}
+
+export type ReturnStatusDTO =
+  | "INITIATED"
+  | "GRADED"
+  | "FEASIBILITY_ANALYZED"
+  | "RETURN_APPROVED"
+  | "RETURN_PICKUP_SCHEDULED"
+  | "RETURNED_TO_SELLER"
+  | "SECOND_LIFE_LISTED"
+  | "BUYER_RESERVED"
+  | "SL_PICKUP_SCHEDULED"
+  | "DELIVERY_VERIFICATION"
+  | "TRANSFER_APPROVED"
+  | "REFUND_INITIATED"
+  | "COMPLETED"
+  | "TRANSFER_REJECTED"
+  | "WINDOW_EXPIRED"
+  | "LIQUIDATION_PICKUP"
+  | "LIQUIDATED";
+
+export interface ReturnEventDTO {
+  id: string;
+  status: ReturnStatusDTO;
+  message: string;
+  data?: unknown;
+  createdAt: string;
+}
+
+export interface ReturnCaseDTO {
+  id: string;
+  userId: string;
+  itemId: string;
+  orderId: string | null;
+  reason: string;
+  status: ReturnStatusDTO;
+  decision: "FEASIBLE" | "NOT_FEASIBLE" | null;
+  grade: Grade | null;
+  feasibility: FeasibilityDTO | null;
+  secondLifeListingId: string | null;
+  secondLifeDeadline: string | null;
+  reservedBuyerId: string | null;
+  reservedBuyerName: string | null;
+  reservedDistanceKm: number | null;
+  verificationApproved: boolean | null;
+  verificationNotes: string | null;
+  rejectionReason: string | null;
+  disposition: string | null;
+  refundInitiatedAt: string | null;
+  refundAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+  item: ItemDTO;
+  events: ReturnEventDTO[];
+}

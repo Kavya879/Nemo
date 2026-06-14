@@ -60,6 +60,43 @@ enum OrderStatus {
   RETURNED
 }
 
+/// The full lifecycle of a return decision case.
+enum ReturnStatus {
+  INITIATED
+  GRADED
+  FEASIBILITY_ANALYZED
+  // Feasible path
+  RETURN_APPROVED
+  RETURN_PICKUP_SCHEDULED
+  RETURNED_TO_SELLER
+  // Not-feasible → Second Life path
+  SECOND_LIFE_LISTED
+  BUYER_RESERVED
+  SL_PICKUP_SCHEDULED
+  DELIVERY_VERIFICATION
+  TRANSFER_APPROVED
+  REFUND_INITIATED
+  COMPLETED
+  TRANSFER_REJECTED
+  // No buyer within window
+  WINDOW_EXPIRED
+  LIQUIDATION_PICKUP
+  LIQUIDATED
+}
+
+enum ReturnDecision {
+  FEASIBLE
+  NOT_FEASIBLE
+}
+
+enum Disposition {
+  LIQUIDATED
+  BULK_RESALE
+  REFURBISHMENT
+  RECYCLED
+  DONATED
+}
+
 // ── Core models ─────────────────────────────────────────────────────────────
 
 /// The physical product moving through the system.
@@ -83,9 +120,69 @@ model Item {
   listing          Listing?
   greenCredits     GreenCredit[]
   orders           Order[]
+  returnCases      ReturnCase[]
 
   @@index([category])
   @@index([status])
+}
+
+/// A return decision case — the persisted state machine + snapshots that drive
+/// the full feasibility / second-life / liquidation workflow.
+model ReturnCase {
+  id     String @id @default(cuid())
+  userId String @default("demo-user")
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  orderId String?
+  reason  String
+  status  ReturnStatus    @default(INITIATED)
+  decision ReturnDecision?
+
+  // Grading snapshot
+  gradeResultId String?
+  grade         Grade?
+
+  // Feasibility snapshot (the full cost/recovery breakdown as produced by the engine)
+  feasibility Json?
+
+  // Second Life
+  secondLifeListingId String?
+  secondLifeDeadline  DateTime?
+  reservedBuyerId     String?
+  reservedBuyerName   String?
+  reservedDistanceKm  Float?
+
+  // Delivery-partner verification
+  verificationApproved Boolean?
+  verificationNotes    String?
+  rejectionReason      String?
+
+  // Disposition / refund
+  disposition       Disposition?
+  refundInitiatedAt DateTime?
+  refundAmount      Float?
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  events    ReturnEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([itemId])
+}
+
+/// Append-only audit trail of every state transition (traceability).
+model ReturnEvent {
+  id           String       @id @default(cuid())
+  returnCaseId String
+  returnCase   ReturnCase   @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  status       ReturnStatus
+  message      String
+  data         Json?
+  createdAt    DateTime     @default(now())
+
+  @@index([returnCaseId])
 }
 
 /// A customer's purchase of an item — what makes a return possible, and only
@@ -238,6 +335,35 @@ model RoutingConfig {
   // ── Returns ──
   /// Days after delivery during which an order is still returnable.
   returnWindowDays Int @default(30)
+
+  // ── Reverse-logistics cost model (Feasibility Analysis Engine) ──
+  /// Fixed cost to dispatch a pickup agent.
+  pickupBaseCost Float @default(80)
+  /// Per-km line-haul cost for moving the item back to the warehouse/seller.
+  transportCostPerKm Float @default(3)
+  /// Inbound warehouse handling (dock, scan, putaway).
+  warehouseHandlingCost Float @default(40)
+  /// Manual inspection / re-grade at the warehouse.
+  inspectionCost Float @default(35)
+  /// Base repackaging cost (scaled up for lower grades).
+  repackagingBaseCost Float @default(25)
+  /// Storage cost per day while the item awaits disposition.
+  storageCostPerDay Float @default(8)
+  /// Expected number of days the item sits in storage.
+  estimatedStorageDays Int @default(10)
+  /// Seller / return warehouse coordinates (transport distance is measured to here).
+  warehouseLat Float @default(11.0168)
+  warehouseLng Float @default(76.9558)
+  /// Intrinsic current-value fraction of original price, per grade.
+  /// Optional only so the column can be added to an existing row; the seed
+  /// always populates it and the engine reads it from config.
+  depreciationByGrade Json?
+  /// Minimum acceptable net recovery (₹) for a return to be feasible.
+  minNetRecoveryValue Float @default(0)
+  /// Minimum resale-value-to-cost ratio for a return to be feasible.
+  feasibilityRatio Float @default(1.15)
+  /// Length of the Second Life opportunity window (days).
+  secondLifeWindowDays Int @default(7)
 
   updatedAt DateTime @updatedAt
 }

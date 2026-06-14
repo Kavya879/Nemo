@@ -49,6 +49,31 @@ async function seedConfig() {
     Books: 1.5,
   };
 
+  // Intrinsic current-value fraction of original price, per grade (distinct from
+  // resale price, which also factors local demand).
+  const depreciationByGrade: Prisma.InputJsonValue = {
+    A: 0.85,
+    B: 0.65,
+    C: 0.45,
+    D: 0.2,
+  };
+
+  const costModel = {
+    pickupBaseCost: 80,
+    transportCostPerKm: 3,
+    warehouseHandlingCost: 40,
+    inspectionCost: 35,
+    repackagingBaseCost: 25,
+    storageCostPerDay: 8,
+    estimatedStorageDays: 10,
+    warehouseLat: 11.0168, // Coimbatore (~230km from the Bengaluru demo center)
+    warehouseLng: 76.9558,
+    minNetRecoveryValue: 0,
+    feasibilityRatio: 1.15,
+    secondLifeWindowDays: 7,
+    depreciationByGrade,
+  };
+
   const config = await prisma.routingConfig.upsert({
     where: { id: "default" },
     update: {
@@ -65,6 +90,7 @@ async function seedConfig() {
       costSavedFactor: 0.6,
       preventionBaseConfidence: 0.7,
       returnWindowDays: 30,
+      ...costModel,
     },
     create: {
       id: "default",
@@ -81,6 +107,7 @@ async function seedConfig() {
       costSavedFactor: 0.6,
       preventionBaseConfidence: 0.7,
       returnWindowDays: 30,
+      ...costModel,
     },
   });
 
@@ -196,7 +223,11 @@ async function seedOrders() {
     const deliveredAt = daysAgo(o.deliveredDaysAgo);
     await prisma.order.upsert({
       where: { id: o.id },
-      update: { deliveredAt, orderedAt: daysAgo(o.deliveredDaysAgo + 3) },
+      update: {
+        deliveredAt,
+        orderedAt: daysAgo(o.deliveredDaysAgo + 3),
+        status: "DELIVERED",
+      },
       create: {
         id: o.id,
         itemId: o.itemId,

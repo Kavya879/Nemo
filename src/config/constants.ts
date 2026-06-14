@@ -38,6 +38,12 @@ export const API_VERSION = "1.0";
 export const EARTH_RADIUS_KM = 6371;
 
 /**
+ * Demo customer location (Bengaluru). In production this comes from the order's
+ * shipping address; centralized here so it isn't sprinkled through the code.
+ */
+export const CUSTOMER_LOCATION = { lat: 12.9716, lng: 77.5946 };
+
+/**
  * Reward catalog for redeeming Green Credits. Stable app config (not a secret,
  * not a per-tenant business rule), so it lives here.
  */

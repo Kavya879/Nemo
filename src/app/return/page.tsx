@@ -1,10 +1,5 @@
-import { PageShell } from "@/components/PageShell";
-import { ReturnFlow } from "@/components/flow/ReturnFlow";
+import { ReturnWorkflow } from "@/components/flow/ReturnWorkflow";
 
 export default function ReturnPage() {
-  return (
-    <PageShell>
-      <ReturnFlow />
-    </PageShell>
-  );
+  return <ReturnWorkflow />;
 }

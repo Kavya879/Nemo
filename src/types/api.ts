@@ -8,6 +8,26 @@ import { RoutingContextSchema } from "@/services/routing/types";
  * frontend client can mirror them.
  */
 
+// ── Return workflow ──
+export const InitiateReturnCaseSchema = z.object({
+  itemId: z.string().min(1),
+  reason: z.string().min(1),
+  userId: z.string().optional(),
+});
+
+export const GradeImagesSchema = z.object({
+  images: z.array(ImageInputSchema).min(1).max(5),
+});
+
+export const VerifyTransferSchema = z.object({
+  approved: z.boolean(),
+  notes: z.string().optional(),
+});
+
+export const ExpireWindowSchema = z.object({
+  force: z.boolean().optional(),
+});
+
 export const CreateItemRequestSchema = z.object({
   name: z.string().min(1),
   category: z.string().min(1),

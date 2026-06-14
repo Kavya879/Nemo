@@ -11,6 +11,7 @@ import type {
   PriceResultDTO,
   RedeemResultDTO,
   RedemptionDTO,
+  ReturnCaseDTO,
   ReturnDTO,
   RewardDTO,
   RoutingResultDTO,
@@ -119,6 +120,38 @@ export const apiClient = {
     request<RedemptionDTO[]>(
       `/api/credits/redemptions${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
     ),
+
+  // ── Return decision workflow ──
+  initiateReturnCase: (itemId: string, reason: string) =>
+    request<ReturnCaseDTO>("/api/return-cases", {
+      method: "POST",
+      body: JSON.stringify({ itemId, reason }),
+    }),
+  getReturnCase: (id: string) => request<ReturnCaseDTO>(`/api/return-cases/${id}`),
+  gradeCase: (id: string, images: GradeImageInput[]) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/grade`, {
+      method: "POST",
+      body: JSON.stringify({ images }),
+    }),
+  analyzeCase: (id: string) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/analyze`, { method: "POST" }),
+  completePickup: (id: string) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/complete-pickup`, { method: "POST" }),
+  findBuyerForCase: (id: string) =>
+    request<{ found: boolean; case: ReturnCaseDTO }>(
+      `/api/return-cases/${id}/find-buyer`,
+      { method: "POST" },
+    ),
+  verifyTransfer: (id: string, approved: boolean, notes?: string) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/verify`, {
+      method: "POST",
+      body: JSON.stringify({ approved, notes }),
+    }),
+  expireWindow: (id: string, force?: boolean) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/expire`, {
+      method: "POST",
+      body: JSON.stringify({ force }),
+    }),
 
   getOrders: (userId?: string) =>
     request<EligibleOrderDTO[]>(
