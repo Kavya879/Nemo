@@ -16,6 +16,7 @@ import { DeliverTo } from "@/components/DeliverTo";
  * secondary dark department bar.
  */
 const DEPARTMENTS = [
+  { href: "/products", label: "Shop New" },
   { href: "/marketplace", label: "Second-Life Deals" },
   { href: "/sell", label: "Sell on Amazon Nemo" },
   { href: "/return", label: "Returns" },
@@ -36,7 +37,9 @@ export function Navbar() {
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     const term = cat !== "all" ? cat : q;
-    router.push(`/marketplace${term ? `?q=${encodeURIComponent(term)}` : ""}`);
+    // The header search is the main Brand New store search; second-life is its
+    // own destination ("Second-Life Deals" in the department bar).
+    router.push(`/products${term ? `?q=${encodeURIComponent(term)}` : ""}`);
   }
 
   return (
@@ -72,7 +75,7 @@ export function Navbar() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search certified pre-owned…"
+            placeholder="Search Amazon Nemo…"
             className="min-w-0 flex-1 px-3 text-sm text-ink outline-none"
           />
           <button
@@ -132,7 +135,7 @@ export function Navbar() {
       {/* Department bar */}
       <div className="flex items-center gap-1 bg-slate px-3 py-1 text-sm text-white">
         <Link
-          href="/marketplace"
+          href="/products"
           className="flex items-center gap-1 rounded border border-transparent px-2 py-1 font-bold hover:border-white"
         >
           ☰ All

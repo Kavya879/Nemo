@@ -19,7 +19,7 @@ import { LoadingState, ErrorState } from "@/components/flow/States";
 
 export function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
-  const { add } = useCart();
+  const { add, qtyOf } = useCart();
   const [listing, setListing] = useState<ListingDTO | null>(null);
   const [intel, setIntel] = useState<ProductIntelligenceDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +79,8 @@ export function ProductDetail({ id }: { id: string }) {
   const saved = Math.max(original - listing.price, 0);
   const rating = 3 + listing.healthCard.confidence * 2;
   const soldOut = listing.status === "SOLD";
+  // Resold listings are one-of-a-kind — exactly one unit can ever be in the cart.
+  const inCart = qtyOf(listing.id) > 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-3">
@@ -146,14 +148,23 @@ export function ProductDetail({ id }: { id: string }) {
             ) : (
               <p className="text-lg font-medium text-success">In stock · one available</p>
             )}
-            <button
-              onClick={addToCart}
-              disabled={soldOut}
-              className="w-full rounded-full bg-amzYellow py-2 text-sm font-medium text-ink hover:bg-amzYellowDark disabled:cursor-not-allowed disabled:bg-mist disabled:text-storm"
-            >
-              {soldOut ? "Sold Out" : "Add to Cart"}
-            </button>
-            {addedToCart && (
+            {inCart ? (
+              <Link
+                href="/cart"
+                className="block w-full rounded-full bg-success/10 py-2 text-center text-sm font-medium text-success"
+              >
+                ✓ In cart · View cart
+              </Link>
+            ) : (
+              <button
+                onClick={addToCart}
+                disabled={soldOut}
+                className="w-full rounded-full bg-amzYellow py-2 text-sm font-medium text-ink hover:bg-amzYellowDark disabled:cursor-not-allowed disabled:bg-mist disabled:text-storm"
+              >
+                {soldOut ? "Sold Out" : "Add to Cart"}
+              </button>
+            )}
+            {addedToCart && !inCart && (
               <p className="rounded bg-success/10 py-1 text-center text-xs font-medium text-success">
                 ✓ Added to cart ·{" "}
                 <Link href="/cart" className="underline">

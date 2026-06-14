@@ -38,8 +38,14 @@ export default function HomePage() {
           </p>
           <div className="mt-1 flex flex-wrap gap-3">
             <Link
-              href="/marketplace"
+              href="/products"
               className="rounded-full bg-ember px-5 py-2 text-sm font-bold text-squid hover:bg-zestDark"
+            >
+              Shop Brand New
+            </Link>
+            <Link
+              href="/marketplace"
+              className="rounded-full border border-line bg-white px-5 py-2 text-sm font-bold text-ink hover:bg-mist"
             >
               Shop second-life deals
             </Link>
@@ -66,7 +72,7 @@ export default function HomePage() {
               : categories.slice(0, 4).map((c) => (
                   <Link
                     key={c.category}
-                    href={`/marketplace?q=${encodeURIComponent(c.category)}`}
+                    href={`/products?q=${encodeURIComponent(c.category)}`}
                     className="flex flex-col items-center justify-center gap-1 rounded bg-mist/50 p-3 text-center hover:bg-mist"
                   >
                     <span className="text-3xl">{categoryIcon(c.category)}</span>
@@ -75,10 +81,10 @@ export default function HomePage() {
                 ))}
           </div>
           <Link
-            href="/marketplace"
+            href="/products"
             className="mt-auto pt-3 text-sm font-medium text-link hover:text-linkHover hover:underline"
           >
-            Shop all deals
+            Shop all products
           </Link>
         </article>
 
@@ -163,7 +169,7 @@ export default function HomePage() {
               </p>
             </div>
             <Link
-              href="/marketplace"
+              href="/products"
               className="shrink-0 text-sm font-medium text-link hover:text-linkHover hover:underline"
             >
               See all

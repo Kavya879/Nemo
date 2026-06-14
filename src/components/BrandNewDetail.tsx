@@ -55,9 +55,9 @@ export function BrandNewDetail({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-3">
       <nav className="mb-3 text-xs text-link">
-        <Link href="/marketplace" className="hover:text-linkHover hover:underline">Shop</Link>
+        <Link href="/products" className="hover:text-linkHover hover:underline">Shop New</Link>
         <span className="mx-1 text-storm">›</span>
-        <Link href={`/marketplace?q=${encodeURIComponent(product.category)}`} className="hover:text-linkHover hover:underline">
+        <Link href={`/products?q=${encodeURIComponent(product.category)}`} className="hover:text-linkHover hover:underline">
           {product.category}
         </Link>
       </nav>
