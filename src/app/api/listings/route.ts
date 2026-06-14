@@ -1,5 +1,6 @@
 import { listingService } from "@/services/listing/listing.service";
 import { listingRepository } from "@/repositories/listing.repository";
+import { reviewRepository } from "@/repositories/review.repository";
 import { intelligenceService } from "@/services/intelligence/intelligence.service";
 import { CreateListingRequestSchema } from "@/types/api";
 import { parseJsonBody } from "@/lib/validate";
@@ -15,10 +16,19 @@ export async function GET() {
     const enriched = await Promise.all(
       listings.map(async (l) => {
         try {
-          const risk = await intelligenceService.cardRisk(l.itemId);
-          return { ...l, returnRiskLevel: risk.level, returnRiskScore: risk.score };
+          const [risk, reviews] = await Promise.all([
+            intelligenceService.cardRisk(l.itemId),
+            reviewRepository.aggregateForItem(l.itemId),
+          ]);
+          return {
+            ...l,
+            returnRiskLevel: risk.level,
+            returnRiskScore: risk.score,
+            avgRating: reviews.avgRating,
+            reviewCount: reviews.count,
+          };
         } catch {
-          return l; // never block the catalog on a risk computation
+          return l; // never block the catalog on a risk/review computation
         }
       }),
     );

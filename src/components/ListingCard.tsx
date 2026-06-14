@@ -39,7 +39,9 @@ export function toResoldCartLine(l: ListingDTO): Omit<CartLine, "qty"> {
 
 export function ListingCard({ listing }: { listing: ListingDTO }) {
   const grade = listing.healthCard.verifiedCondition;
-  const rating = 3 + listing.healthCard.confidence * 2; // 3..5
+  // Rating is REAL — from customer reviews only. Null when the product has none.
+  const avgRating = listing.avgRating ?? null;
+  const reviewCount = listing.reviewCount ?? 0;
   const { add, qtyOf } = useCart();
   const inCart = qtyOf(listing.id);
   const soldOut = listing.status === "SOLD";
@@ -73,7 +75,14 @@ export function ListingCard({ listing }: { listing: ListingDTO }) {
           <GradeBadge grade={grade} size="sm" />
         </div>
         <h3 className="line-clamp-2 text-sm text-ink hover:text-linkHover">{listing.title}</h3>
-        <Stars rating={rating} />
+        {avgRating != null && reviewCount > 0 ? (
+          <span className="flex items-center gap-1">
+            <Stars rating={avgRating} />
+            <span className="text-xs text-storm">({reviewCount})</span>
+          </span>
+        ) : (
+          <span className="text-xs text-storm">No ratings yet</span>
+        )}
         {listing.returnRiskLevel && (
           <span
             className={`w-fit rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${

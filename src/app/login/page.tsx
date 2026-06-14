@@ -50,12 +50,24 @@ export default function LoginPage() {
                 >
                   <span className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-squid text-zest">
-                      {u.role === "owner" ? "🏪" : "🛍"}
+                      {u.role === "owner"
+                        ? "🏪"
+                        : u.role === "admin"
+                          ? "⚡"
+                          : u.role === "delivery"
+                            ? "🚚"
+                            : "🛍"}
                     </span>
                     <span>
                       <span className="block font-semibold">{u.name}</span>
                       <span className="block text-xs text-storm">
-                        {u.role === "owner" ? "Owner / seller (has demo orders)" : "Buyer"}
+                        {u.role === "owner"
+                          ? "Owner / seller (has demo orders)"
+                          : u.role === "admin"
+                            ? "Operations console"
+                            : u.role === "delivery"
+                              ? "Delivery partner — daily pickups & drops"
+                              : "Buyer"}
                       </span>
                     </span>
                   </span>

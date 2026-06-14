@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { useUser } from "@/lib/user-context";
-import { isAdmin } from "@/lib/session";
+import { isAdmin, isDelivery } from "@/lib/session";
 import { useCategories } from "@/lib/use-categories";
 import { useNotifications } from "@/lib/notifications";
 import { Logo } from "@/components/Logo";
@@ -20,7 +20,6 @@ const DEPARTMENTS = [
   { href: "/products", label: "Shop New" },
   { href: "/marketplace", label: "Second-Life Deals" },
   { href: "/sell", label: "Sell on Amazon Nemo" },
-  { href: "/return", label: "Returns" },
   { href: "/impact", label: "Your Impact" },
   { href: "/coupons", label: "Coupons" },
   { href: "/orders", label: "Your Orders" },
@@ -44,19 +43,20 @@ export function Navbar() {
     router.push(`/products${term ? `?q=${encodeURIComponent(term)}` : ""}`);
   }
 
-  // Admins get a focused, console-only header — no storefront search, no
-  // departments, no cart. Just the console and a way to switch accounts.
-  if (isAdmin(user)) {
+  // Admins and delivery partners get a focused, console-only header — no
+  // storefront search, departments, or cart. Just their home + switch account.
+  if (isAdmin(user) || isDelivery(user)) {
+    const delivery = isDelivery(user);
     return (
       <header className="flex w-full items-center gap-2 bg-squid px-3 py-2 text-white">
         <Link
-          href="/admin"
+          href={delivery ? "/delivery" : "/admin"}
           className="flex shrink-0 items-center gap-1 rounded border border-transparent px-2 py-1 hover:border-white"
         >
           <Logo tone="dark" size="md" />
         </Link>
         <span className="ml-1 rounded bg-ember/90 px-2 py-0.5 text-xs font-bold text-squid">
-          ⚡ Operations Console
+          {delivery ? "🚚 Delivery Partner" : "⚡ Operations Console"}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden text-sm sm:block">

@@ -140,17 +140,59 @@ interface CatalogEntry {
 
 const PRICE_PCT: Record<Grade, number> = { A: 0.85, B: 0.675, C: 0.475, D: 0.175 };
 
-// Category-representative reference product images (public Unsplash, hotlinkable).
-// In production each SKU would carry its own catalog image; these give the model
-// a real, category-relevant baseline to compare the return photo against.
+// Real, keyword-matched product photos (loremflickr — keyless, hotlinkable, and
+// STABLE via the ?lock seed so each SKU keeps the same image). Per-product images
+// below; category images are the fallback. These also give the grader a
+// category-relevant baseline to compare a return photo against.
+const img = (keywords: string, lock: number) =>
+  `https://loremflickr.com/600/600/${keywords}?lock=${lock}`;
+
 const CATEGORY_IMAGE: Record<string, string> = {
-  Footwear: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&q=70",
-  Electronics: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=70",
-  Apparel: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=70",
-  Home: "https://images.unsplash.com/photo-1556909212-d5b604d0c90d?w=500&q=70",
-  Books: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&q=70",
-  Toys: "https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=500&q=70",
+  Footwear: img("shoes", 11),
+  Electronics: img("electronics,gadget", 12),
+  Apparel: img("clothing", 13),
+  Home: img("home,appliance", 14),
+  Kitchenware: img("kitchenware", 15),
+  Books: img("book", 16),
+  Toys: img("toy", 17),
+  Furniture: img("furniture", 18),
+  Beauty: img("cosmetics", 19),
+  Sports: img("sports,equipment", 20),
+  Others: img("product", 21),
 };
+
+// Per-SKU realistic photos (keyword chosen to match each specific product).
+const IMAGE_BY_ID: Record<string, string> = {
+  "demo-item-sneakers": img("running,shoes", 101),
+  "demo-item-headphones": img("headphones", 102),
+  "demo-item-blender": img("blender", 103),
+  "demo-item-tshirt": img("tshirt", 104),
+  "demo-item-monitor": img("computer,monitor", 105),
+  "demo-item-jacket": img("winter,jacket", 106),
+  "demo-item-tablet": img("tablet", 107),
+  "demo-item-lamp": img("desk,lamp", 108),
+  "demo-item-earbuds": img("earbuds", 109),
+  "demo-item-blocks": img("building,blocks", 110),
+  "mkt-item-jeans": img("jeans", 111),
+  "mkt-item-coffee": img("coffee,machine", 112),
+  "mkt-item-powerbank": img("powerbank", 113),
+  "mkt-item-book": img("book", 114),
+  "mkt-item-boots": img("leather,boots", 115),
+  "mkt-item-kettle": img("electric,kettle", 116),
+  // Brand-new catalog products
+  "new-airbuds-pro": img("wireless,earbuds", 201),
+  "new-pixelview-monitor": img("computer,monitor", 202),
+  "new-trailguard-jacket": img("waterproof,jacket", 203),
+  "new-cotton-tee": img("tshirt", 204),
+  "new-whirlmix-blender": img("blender", 205),
+  "new-glowlite-lamp": img("desk,lamp", 206),
+  "new-nimbus-runners": img("sneakers", 207),
+  "new-buildblocks-deluxe": img("building,blocks", 208),
+  "new-paperleaf-journal": img("notebook,journal", 209),
+  "new-misc-giftset": img("gift,box", 210),
+};
+const imageFor = (id: string, category: string): string =>
+  IMAGE_BY_ID[id] ?? CATEGORY_IMAGE[category] ?? img("product", 0);
 const CATEGORY_ICON: Record<string, string> = {
   Footwear: "👟",
   Electronics: "🎧",
@@ -521,7 +563,7 @@ const BRAND_NEW: BrandNewEntry[] = [
 
 async function seedProducts() {
   for (const p of BRAND_NEW) {
-    const imageUrl = CATEGORY_IMAGE[p.category] ?? null;
+    const imageUrl = imageFor(p.id, p.category);
     await prisma.product.upsert({
       where: { id: p.id },
       update: {
@@ -552,7 +594,7 @@ async function seedProducts() {
 
 async function seedItems() {
   for (const e of CATALOG) {
-    const imageUrl = CATEGORY_IMAGE[e.category] ?? null;
+    const imageUrl = imageFor(e.id, e.category);
     const specs = (SPECS_BY_ID[e.id] ?? {}) as Prisma.InputJsonValue;
     const data = {
       name: e.name,

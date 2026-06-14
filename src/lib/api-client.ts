@@ -24,6 +24,7 @@ import type {
   ProductDTO,
   ReturnDealDTO,
   NotificationDTO,
+  DeliveryBoardDTO,
   MatchResultDTO,
   PreventionResultDTO,
   PriceResultDTO,
@@ -216,6 +217,11 @@ export const apiClient = {
     request<ReturnCaseDTO>(`/api/return-cases/${id}/analyze`, { method: "POST" }),
   completePickup: (id: string) =>
     request<ReturnCaseDTO>(`/api/return-cases/${id}/complete-pickup`, { method: "POST" }),
+  rejectPickup: (id: string, reason: string) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/reject-pickup`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
   findBuyerForCase: (id: string) =>
     request<{ found: boolean; case: ReturnCaseDTO }>(
       `/api/return-cases/${id}/find-buyer`,
@@ -431,6 +437,9 @@ export const apiClient = {
   // ── User notifications (activity feed) ──
   getNotifications: (userId: string = currentUserId()) =>
     request<NotificationDTO[]>(`/api/notifications?userId=${encodeURIComponent(userId)}`),
+
+  // ── Delivery partner board ──
+  getDeliveryTasks: () => request<DeliveryBoardDTO>("/api/delivery/tasks"),
 
   match: (category: string, lat: number, lng: number, radiusKm?: number) => {
     const q = new URLSearchParams({

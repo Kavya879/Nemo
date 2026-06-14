@@ -83,6 +83,9 @@ export interface ListingDTO {
   /** Compact return-risk indicator for listing cards (computed by the engine). */
   returnRiskLevel?: "low" | "medium" | "high";
   returnRiskScore?: number;
+  /** Real customer-review rating for listing cards — null when there are none. */
+  avgRating?: number | null;
+  reviewCount?: number;
 }
 
 export interface ItemDTO {
@@ -123,6 +126,34 @@ export interface NotificationDTO {
   level: "info" | "success" | "warning";
   href?: string;
   createdAt: string;
+}
+
+/** A task on a delivery partner's daily route (derived from active return cases). */
+export interface DeliveryTaskDTO {
+  caseId: string;
+  itemName: string;
+  category: string;
+  brand: string | null;
+  originalImageUrl: string | null;
+  returnPhotos: { data: string; mimeType: string; role: string }[];
+  reason: string;
+  /** RETURN_PICKUP = collect from customer → seller; VERIFY_EXCHANGE = collect + verify → buyer. */
+  kind: "RETURN_PICKUP" | "VERIFY_EXCHANGE" | "DROP";
+  status: string;
+  fromLabel: string;
+  toLabel: string;
+  distanceKm: number | null;
+  grade: Grade | null;
+  lat: number;
+  lng: number;
+  locationLabel: string;
+  createdAt: string;
+}
+
+export interface DeliveryBoardDTO {
+  pickups: DeliveryTaskDTO[];
+  completed: DeliveryTaskDTO[];
+  stats: { pickups: number; completed: number };
 }
 
 export type StockStatusDTO = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";

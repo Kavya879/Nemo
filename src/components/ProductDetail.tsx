@@ -77,8 +77,10 @@ export function ProductDetail({ id }: { id: string }) {
   const category = listing.item?.category ?? "general";
   const original = listing.item?.originalPrice ?? Math.round(listing.price / (listing.pricePct || 1));
   const saved = Math.max(original - listing.price, 0);
-  const rating = 3 + listing.healthCard.confidence * 2;
   const soldOut = listing.status === "SOLD";
+  // Rating is REAL — from customer reviews only (loaded with intel). Null = none.
+  const avgRating = intel?.reviews.avgRating ?? null;
+  const reviewCount = intel?.reviews.count ?? 0;
   // Resold listings are one-of-a-kind — exactly one unit can ever be in the cart.
   const inCart = qtyOf(listing.id) > 0;
 
@@ -107,8 +109,19 @@ export function ProductDetail({ id }: { id: string }) {
         <div className="space-y-3 lg:col-span-5">
           <h1 className="text-2xl font-medium text-ink">{listing.title}</h1>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-star">{"★".repeat(Math.round(rating))}<span className="text-line">{"★".repeat(5 - Math.round(rating))}</span></span>
-            <span className="text-link">{rating.toFixed(1)}</span>
+            {avgRating != null && reviewCount > 0 ? (
+              <>
+                <span className="text-star">
+                  {"★".repeat(Math.round(avgRating))}
+                  <span className="text-line">{"★".repeat(5 - Math.round(avgRating))}</span>
+                </span>
+                <span className="text-link">
+                  {avgRating.toFixed(1)} · {reviewCount} review{reviewCount === 1 ? "" : "s"}
+                </span>
+              </>
+            ) : (
+              <span className="text-storm">No ratings yet</span>
+            )}
             <span className="text-storm">· Amazon Nemo verified</span>
           </div>
           <GradeBadge grade={listing.healthCard.verifiedCondition} showLabel />

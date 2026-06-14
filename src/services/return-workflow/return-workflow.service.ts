@@ -344,6 +344,24 @@ export function createReturnWorkflowService() {
       });
     },
 
+    /**
+     * Feasible path: delivery partner inspects the item at pickup and REJECTS it
+     * (doesn't match the original / damaged differently / fraud). The return is
+     * cancelled and the item stays with the customer.
+     */
+    async rejectReturnPickup(input: { caseId: string; reason: string }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(c.status, ["RETURN_PICKUP_SCHEDULED"], "reject pickup");
+      const reason = input.reason.trim() || "Item did not match the original product at pickup.";
+      // The customer keeps the item; the order goes back to delivered (no refund).
+      if (c.orderId) await orderRepository.updateStatus(c.orderId, "DELIVERED");
+      return returnCaseRepository.transition(c.id, {
+        status: "TRANSFER_REJECTED",
+        message: `Pickup REJECTED by the delivery partner: ${reason}. Return cancelled — item stays with the customer.`,
+        patch: { verificationApproved: false, rejectionReason: reason },
+      });
+    },
+
     /** Feasible path: delivery partner has collected the item. */
     async completeReturnPickup(input: { caseId: string }): Promise<ReturnCaseWithRelations> {
       const c = await load(input.caseId);

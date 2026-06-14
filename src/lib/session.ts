@@ -11,7 +11,7 @@
 export interface SessionUser {
   id: string;
   name: string;
-  role: "owner" | "buyer" | "admin";
+  role: "owner" | "buyer" | "admin" | "delivery";
 }
 
 const KEY = "nemo-user-v1";
@@ -29,10 +29,15 @@ export const PRESET_USERS: SessionUser[] = [
   { id: "buyer-asha", name: "Asha", role: "buyer" },
   { id: "buyer-ravi", name: "Ravi", role: "buyer" },
   { id: "admin-ops", name: "Ops Admin", role: "admin" },
+  { id: "delivery-1", name: "Delivery Partner", role: "delivery" },
 ];
 
 export function isAdmin(user: SessionUser): boolean {
   return user.role === "admin";
+}
+
+export function isDelivery(user: SessionUser): boolean {
+  return user.role === "delivery";
 }
 
 export function getCurrentUser(): SessionUser {
