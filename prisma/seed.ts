@@ -140,59 +140,78 @@ interface CatalogEntry {
 
 const PRICE_PCT: Record<Grade, number> = { A: 0.85, B: 0.675, C: 0.475, D: 0.175 };
 
-// Real, keyword-matched product photos (loremflickr — keyless, hotlinkable, and
-// STABLE via the ?lock seed so each SKU keeps the same image). Per-product images
-// below; category images are the fallback. These also give the grader a
-// category-relevant baseline to compare a return photo against.
-const img = (keywords: string, lock: number) =>
-  `https://loremflickr.com/600/600/${keywords}?lock=${lock}`;
+// Real, VERIFIED product photos — each URL was downloaded and visually checked
+// to actually depict the product (Unsplash direct CDN + one DummyJSON image for
+// the blender). Per-SKU images below; category images are the fallback.
+const u = (id: string) => `https://images.unsplash.com/photo-${id}?w=600&q=70&auto=format&fit=crop`;
+
+const PHOTO = {
+  headphones: u("1505740420928-5e560c06d30e"),
+  earbuds: u("1606220588913-b3aacb4d2f46"),
+  monitor: u("1527443224154-c4a3942d3acf"),
+  tablet: u("1544244015-0df4b3ffc6b0"),
+  powerbank: u("1609091839311-d5365f9ff1c5"),
+  jacket: u("1551028719-00167b16eac5"),
+  tshirt: u("1521572163474-6864f9cf17ab"),
+  jeans: u("1542272604-787c3835535d"),
+  sneakers: u("1542291026-7eec264c27ff"),
+  boots: u("1608256246200-53e635b5b65f"),
+  coffeemaker: u("1570222094114-d054a817e56b"),
+  kettle: u("1594213114663-d94db9b17125"),
+  desklamp: u("1507473885765-e6ed057f782c"),
+  blocks: u("1587654780291-39c9404d746b"),
+  book: u("1544947950-fa07a98d237f"),
+  journal: u("1531346878377-a5be20888e57"),
+  giftbox: u("1607344645866-009c320b63e0"),
+  blender: "https://cdn.dummyjson.com/product-images/kitchen-accessories/boxed-blender/1.webp",
+};
 
 const CATEGORY_IMAGE: Record<string, string> = {
-  Footwear: img("shoes", 11),
-  Electronics: img("electronics,gadget", 12),
-  Apparel: img("clothing", 13),
-  Home: img("home,appliance", 14),
-  Kitchenware: img("kitchenware", 15),
-  Books: img("book", 16),
-  Toys: img("toy", 17),
-  Furniture: img("furniture", 18),
-  Beauty: img("cosmetics", 19),
-  Sports: img("sports,equipment", 20),
-  Others: img("product", 21),
+  Footwear: PHOTO.sneakers,
+  Electronics: PHOTO.headphones,
+  Apparel: PHOTO.tshirt,
+  Home: PHOTO.desklamp,
+  Kitchenware: PHOTO.blender,
+  Books: PHOTO.book,
+  Toys: PHOTO.blocks,
+  Furniture: PHOTO.desklamp,
+  Beauty: PHOTO.giftbox,
+  Sports: PHOTO.sneakers,
+  Others: PHOTO.giftbox,
 };
 
-// Per-SKU realistic photos (keyword chosen to match each specific product).
+// Per-SKU verified photos (each matches the specific product).
 const IMAGE_BY_ID: Record<string, string> = {
-  "demo-item-sneakers": img("running,shoes", 101),
-  "demo-item-headphones": img("headphones", 102),
-  "demo-item-blender": img("blender", 103),
-  "demo-item-tshirt": img("tshirt", 104),
-  "demo-item-monitor": img("computer,monitor", 105),
-  "demo-item-jacket": img("winter,jacket", 106),
-  "demo-item-tablet": img("tablet", 107),
-  "demo-item-lamp": img("desk,lamp", 108),
-  "demo-item-earbuds": img("earbuds", 109),
-  "demo-item-blocks": img("building,blocks", 110),
-  "mkt-item-jeans": img("jeans", 111),
-  "mkt-item-coffee": img("coffee,machine", 112),
-  "mkt-item-powerbank": img("powerbank", 113),
-  "mkt-item-book": img("book", 114),
-  "mkt-item-boots": img("leather,boots", 115),
-  "mkt-item-kettle": img("electric,kettle", 116),
+  "demo-item-sneakers": PHOTO.sneakers,
+  "demo-item-headphones": PHOTO.headphones,
+  "demo-item-blender": PHOTO.blender,
+  "demo-item-tshirt": PHOTO.tshirt,
+  "demo-item-monitor": PHOTO.monitor,
+  "demo-item-jacket": PHOTO.jacket,
+  "demo-item-tablet": PHOTO.tablet,
+  "demo-item-lamp": PHOTO.desklamp,
+  "demo-item-earbuds": PHOTO.earbuds,
+  "demo-item-blocks": PHOTO.blocks,
+  "mkt-item-jeans": PHOTO.jeans,
+  "mkt-item-coffee": PHOTO.coffeemaker,
+  "mkt-item-powerbank": PHOTO.powerbank,
+  "mkt-item-book": PHOTO.book,
+  "mkt-item-boots": PHOTO.boots,
+  "mkt-item-kettle": PHOTO.kettle,
   // Brand-new catalog products
-  "new-airbuds-pro": img("wireless,earbuds", 201),
-  "new-pixelview-monitor": img("computer,monitor", 202),
-  "new-trailguard-jacket": img("waterproof,jacket", 203),
-  "new-cotton-tee": img("tshirt", 204),
-  "new-whirlmix-blender": img("blender", 205),
-  "new-glowlite-lamp": img("desk,lamp", 206),
-  "new-nimbus-runners": img("sneakers", 207),
-  "new-buildblocks-deluxe": img("building,blocks", 208),
-  "new-paperleaf-journal": img("notebook,journal", 209),
-  "new-misc-giftset": img("gift,box", 210),
+  "new-airbuds-pro": PHOTO.earbuds,
+  "new-pixelview-monitor": PHOTO.monitor,
+  "new-trailguard-jacket": PHOTO.jacket,
+  "new-cotton-tee": PHOTO.tshirt,
+  "new-whirlmix-blender": PHOTO.blender,
+  "new-glowlite-lamp": PHOTO.desklamp,
+  "new-nimbus-runners": PHOTO.sneakers,
+  "new-buildblocks-deluxe": PHOTO.blocks,
+  "new-paperleaf-journal": PHOTO.journal,
+  "new-misc-giftset": PHOTO.giftbox,
 };
 const imageFor = (id: string, category: string): string =>
-  IMAGE_BY_ID[id] ?? CATEGORY_IMAGE[category] ?? img("product", 0);
+  IMAGE_BY_ID[id] ?? CATEGORY_IMAGE[category] ?? PHOTO.giftbox;
 const CATEGORY_ICON: Record<string, string> = {
   Footwear: "👟",
   Electronics: "🎧",
