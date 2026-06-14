@@ -31,6 +31,47 @@ import {
   type ReturnDraft,
 } from "@/lib/reloop";
 
+type RouteType = "RESALE" | "REFURBISH" | "DONATE" | "LIQUIDATE" | "PEER_EXCHANGE";
+
+const routeLabels: Record<RouteType, string> = {
+  RESALE: "Resell now",
+  REFURBISH: "Refurbish first",
+  DONATE: "Donate locally",
+  LIQUIDATE: "Liquidate responsibly",
+  PEER_EXCHANGE: "Route to nearby need",
+};
+
+const routeCopy: Record<RouteType, string> = {
+  RESALE: "Item is in excellent condition — suitable for direct resale.",
+  REFURBISH: "Item has value but needs quality intervention before relisting.",
+  DONATE: "Functional but below resale threshold — community donation maximizes value.",
+  LIQUIDATE: "Significant quality issues — parts recovery or responsible disposal.",
+  PEER_EXCHANGE: "Nearby anonymous demand is stronger than marketplace resale.",
+};
+
+function determineRoute(grade: string, conditionScore: number, category: string): RouteType {
+  if (grade === "A" || (grade === "B" && conditionScore > 78)) return "RESALE";
+  if (category === "ELECTRONICS" && conditionScore > 48) return "REFURBISH";
+  if (grade === "C") return "DONATE";
+  return "LIQUIDATE";
+}
+
+function getNextAction(route: RouteType): string {
+  const actions: Record<RouteType, string> = {
+    RESALE: "Seal for pickup. ReLoop will relist after inspection.",
+    REFURBISH: "Send to nearest refurbishment node before relisting.",
+    DONATE: "Route to verified donation partner on next logistics run.",
+    LIQUIDATE: "Bundle for liquidation or parts recovery.",
+    PEER_EXCHANGE: "Amazon-managed pickup and dropoff scheduled.",
+  };
+  return actions[route];
+}
+
+function getCredits(route: RouteType): number {
+  const credits: Record<RouteType, number> = { PEER_EXCHANGE: 45, DONATE: 40, RESALE: 30, REFURBISH: 30, LIQUIDATE: 10 };
+  return credits[route];
+}
+
 const categoryOptions: { value: ProductCategory; label: string; icon: string }[] = [
   { value: "FOOTWEAR", label: "Footwear", icon: "👟" },
   { value: "APPAREL", label: "Apparel", icon: "👕" },
@@ -79,16 +120,22 @@ export default function CustomerFlowPage() {
     const newImages = [...images, ...validFiles].slice(0, 6);
     setImages(newImages);
 
+    // Revoke old previews to prevent memory leaks
+    previews.forEach((url) => URL.revokeObjectURL(url));
     const newPreviews = newImages.map((f) => URL.createObjectURL(f));
     setPreviews(newPreviews);
     updateDraft("imageCount", newImages.length);
+
+    // Reset input so same file can be selected again
+    e.target.value = "";
   }
 
   function removeImage(index: number) {
+    URL.revokeObjectURL(previews[index]);
     const newImages = images.filter((_, i) => i !== index);
     setImages(newImages);
-    URL.revokeObjectURL(previews[index]);
-    setPreviews(newImages.map((f) => URL.createObjectURL(f)));
+    const newPreviews = newImages.map((f) => URL.createObjectURL(f));
+    setPreviews(newPreviews);
     updateDraft("imageCount", newImages.length);
   }
 
@@ -96,11 +143,73 @@ export default function CustomerFlowPage() {
     if (!draft.title || !draft.reason) return;
     setStep("analyzing");
 
-    // Simulate AI processing time for demo feel
-    await new Promise((r) => setTimeout(r, 1800));
+    // Step 1: Upload images to server
+    let uploadedUrls: string[] = [];
+    if (images.length > 0) {
+      try {
+        const formData = new FormData();
+        images.forEach((file) => formData.append("files", file));
+        const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+        if (uploadRes.ok) {
+          const data = await uploadRes.json();
+          uploadedUrls = data.urls || [];
+        }
+      } catch {
+        // Upload failed silently — grading still works without images on server
+      }
+    }
 
-    const result = gradeReturn({ ...draft, imageCount: images.length || draft.imageCount });
-    setHealthCard(result);
+    // Step 2: Try AI service for grading (FastAPI + Ollama)
+    let aiResult: HealthCard | null = null;
+    try {
+      const aiRes = await fetch("/api/ai/inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnId: null, // No DB record yet — triggers fallback grading in the API
+          title: draft.title,
+          brand: draft.brand,
+          category: draft.category,
+          reason: draft.reason,
+          details: draft.details,
+          imageUrls: uploadedUrls,
+          imageCount: images.length || draft.imageCount,
+        }),
+      });
+
+      if (aiRes.ok) {
+        const data = await aiRes.json();
+        if (data.healthCard) {
+          const hc = data.healthCard;
+          const confidence = hc.confidence;
+          const grade = confidence >= 86 ? "A" : confidence >= 70 ? "B" : confidence >= 52 ? "C" : "D";
+          const route = determineRoute(grade, hc.conditionScore, draft.category);
+          aiResult = {
+            grade,
+            conditionScore: hc.conditionScore,
+            qualityScore: hc.qualityScore,
+            historyScore: hc.historyScore,
+            confidence,
+            route,
+            routeLabel: routeLabels[route],
+            routeReason: hc.routeReason || routeCopy[route],
+            nextAction: hc.nextAction || getNextAction(route),
+            riskFlags: hc.riskFlags || ["AI inspection complete."],
+            greenCredits: getCredits(route),
+            needMatch: undefined,
+          };
+        }
+      }
+    } catch {
+      // AI service unavailable — use local fallback
+    }
+
+    // Step 3: Fallback to local grading if AI service didn't respond
+    if (!aiResult) {
+      aiResult = gradeReturn({ ...draft, imageCount: images.length || draft.imageCount });
+    }
+
+    setHealthCard(aiResult);
     setStep("result");
   }
 
