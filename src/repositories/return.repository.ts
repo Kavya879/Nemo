@@ -20,6 +20,17 @@ export const returnRepository = {
     });
   },
 
+  /** Deletes the most recent return for an item (used to cancel a request). */
+  async deleteLatestForItem(itemId: string): Promise<boolean> {
+    const latest = await prisma.return.findFirst({
+      where: { itemId },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!latest) return false;
+    await prisma.return.delete({ where: { id: latest.id } });
+    return true;
+  },
+
   /** Historical returns for a category — feeds the prevention service. */
   async listForCategory(category: string, limit = 200): Promise<Return[]> {
     return prisma.return.findMany({

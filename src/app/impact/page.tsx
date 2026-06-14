@@ -31,8 +31,10 @@ export default function ImpactPage() {
     try {
       const res = await apiClient.redeem(reward.id);
       setTotals(res.totals);
-      setToast(`Redeemed: ${reward.label} (−${reward.cost} credits) ${reward.icon}`);
-      setTimeout(() => setToast(null), 3500);
+      setToast(
+        `${reward.icon} ${reward.label} redeemed · code ${res.redemption.code} — see Redeemed Coupons`,
+      );
+      setTimeout(() => setToast(null), 5000);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Could not redeem";
       setError(msg);
@@ -83,7 +85,12 @@ export default function ImpactPage() {
           </div>
 
           {/* Reward catalog */}
-          <h2 className="mt-8 text-xl font-bold">Redeem your credits</h2>
+          <div className="mt-8 flex items-center justify-between">
+            <h2 className="text-xl font-bold">Redeem your credits</h2>
+            <a href="/coupons" className="text-sm font-medium text-link hover:text-linkHover hover:underline">
+              View Redeemed Coupons →
+            </a>
+          </div>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {rewards.map((r) => {
               const affordable = totals.availableBalance >= r.cost;

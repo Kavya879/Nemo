@@ -249,6 +249,8 @@ model RewardRedemption {
   rewardId    String
   rewardLabel String
   cost        Int
+  /// Unique coupon code issued at redemption (shown in Redeemed Coupons).
+  code        String   @default("")
   createdAt   DateTime @default(now())
 
   @@index([userId])

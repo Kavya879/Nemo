@@ -14,6 +14,7 @@ function categoryIcon(cat?: string) {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<EligibleOrderDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   function load() {
     setError(null);
@@ -24,6 +25,18 @@ export default function OrdersPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load orders"));
   }
   useEffect(load, []);
+
+  async function cancelReturn(itemId: string) {
+    setCancelling(itemId);
+    try {
+      await apiClient.cancelReturn(itemId);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not cancel the return");
+    } finally {
+      setCancelling(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -69,7 +82,15 @@ export default function OrdersPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {o.returnEligible ? (
+                  {o.order.status === "RETURN_REQUESTED" ? (
+                    <button
+                      onClick={() => cancelReturn(it.id)}
+                      disabled={cancelling === it.id}
+                      className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist disabled:opacity-50"
+                    >
+                      {cancelling === it.id ? "Cancelling…" : "Cancel return request"}
+                    </button>
+                  ) : o.returnEligible ? (
                     <Link
                       href="/return"
                       className="rounded-full bg-amzYellow px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzYellowDark"

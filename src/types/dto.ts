@@ -110,9 +110,23 @@ export interface RedeemResultDTO {
     rewardId: string;
     rewardLabel: string;
     cost: number;
+    code: string;
     createdAt: string;
   };
   totals: CreditTotalsDTO;
+}
+
+export interface RedemptionDTO {
+  id: string;
+  code: string;
+  rewardId: string;
+  rewardLabel: string;
+  cost: number;
+  createdAt: string;
+  description: string;
+  redeemUrl: string;
+  redeemAt: string;
+  kind: "voucher" | "perk" | "donation";
 }
 
 export interface EligibleOrderDTO {

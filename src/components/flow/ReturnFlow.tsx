@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { apiClient, ApiError } from "@/lib/api-client";
 import type {
@@ -57,11 +58,15 @@ function fileToImage(file: File): Promise<{ base64: string; mimeType: "image/jpe
 const transition = { duration: 0.35 };
 
 export function ReturnFlow() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("select");
   const [orders, setOrders] = useState<EligibleOrderDTO[]>([]);
   const [ordersError, setOrdersError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<ItemDTO | null>(null);
+  /** True once a return has been registered (enables "Cancel return request"). */
+  const [returnCreated, setReturnCreated] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState(REASONS[0]);
   const [photos, setPhotos] = useState<Array<{ base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; preview: string }>>([]);
 
@@ -105,6 +110,7 @@ export function ReturnFlow() {
     setStep("grade");
     try {
       await apiClient.createReturn({ itemId: selected.id, reason, photos: photos.map((p) => p.preview) });
+      setReturnCreated(true);
       const images = photos.length
         ? photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType }))
         : [{ base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", mimeType: "image/png" as const }];
@@ -114,6 +120,34 @@ export function ReturnFlow() {
       setError(describeError(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  function resetFlow() {
+    setSelected(null);
+    setReturnCreated(false);
+    setGrade(null);
+    setRouting(null);
+    setPrice(null);
+    setMatch(null);
+    setListing(null);
+    setError(null);
+    setPhotos([]);
+    setStep("select");
+    apiClient.getOrders().then(setOrders).catch(() => undefined);
+  }
+
+  // Cancel the return request (user changed their mind).
+  async function cancelReturn() {
+    if (!selected) return;
+    setCancelling(true);
+    try {
+      if (returnCreated) await apiClient.cancelReturn(selected.id);
+      resetFlow();
+    } catch (e) {
+      setError(describeError(e));
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -205,11 +239,11 @@ export function ReturnFlow() {
 
               {ordersError && <ErrorState message={ordersError} />}
 
+              {!selected && (
               <div className="grid gap-3 sm:grid-cols-2">
                 {orders.map((o) => {
                   const it = o.order.item;
                   const eligible = o.returnEligible;
-                  const isSelected = selected?.id === it.id;
                   return (
                     <button
                       key={o.order.id}
@@ -218,9 +252,7 @@ export function ReturnFlow() {
                       className={`rounded border bg-white p-4 text-left transition-shadow ${
                         !eligible
                           ? "cursor-not-allowed opacity-60"
-                          : isSelected
-                            ? "border-ember ring-2 ring-zest"
-                            : "border-line hover:shadow-cardHover"
+                          : "border-line hover:shadow-cardHover"
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between">
@@ -247,10 +279,28 @@ export function ReturnFlow() {
                   );
                 })}
               </div>
+              )}
 
               {selected && (
                 <Card>
                   <CardBody className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setSelected(null)}
+                      className="text-sm font-medium text-link hover:underline"
+                    >
+                      ← Choose a different item
+                    </button>
+                    <div className="flex items-center justify-between rounded bg-cloud p-3">
+                      <div>
+                        <div className="font-semibold">{selected.name}</div>
+                        <div className="text-xs text-storm">
+                          {selected.brand ? `${selected.brand} · ` : ""}
+                          {selected.category} · ₹{selected.originalPrice.toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                      {selected.currentGrade && <GradeBadge grade={selected.currentGrade} size="sm" />}
+                    </div>
                     <div>
                       <label className="mb-1 block text-sm font-semibold">Reason for return</label>
                       <select
@@ -416,10 +466,30 @@ export function ReturnFlow() {
                   <ProductHealthCard card={listing.healthCard} />
                 </motion.div>
               )}
+
+              {listing && (
+                <div className="flex justify-end">
+                  <Button size="lg" onClick={() => router.push("/")}>
+                    Done — back to Home →
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </motion.div>
       </AnimatePresence>
+
+      {returnCreated && step !== "select" && !listing && (
+        <div className="mt-6 flex justify-center border-t border-line pt-4">
+          <button
+            onClick={cancelReturn}
+            disabled={cancelling}
+            className="text-sm font-medium text-link hover:text-linkHover hover:underline disabled:opacity-50"
+          >
+            {cancelling ? "Cancelling…" : "Changed your mind? Cancel this return request"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

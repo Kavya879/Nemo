@@ -11,9 +11,10 @@ import { useState } from "react";
  */
 const DEPARTMENTS = [
   { href: "/marketplace", label: "Second-Life Deals" },
-  { href: "/marketplace", label: "Today's Deals" },
+  { href: "/sell", label: "Sell on ReLoop" },
   { href: "/return", label: "Returns" },
   { href: "/impact", label: "Your Impact" },
+  { href: "/coupons", label: "Coupons" },
   { href: "/orders", label: "Your Orders" },
 ];
 
@@ -80,11 +81,11 @@ export function Navbar() {
 
         {/* Account & lists */}
         <Link
-          href="/impact"
+          href="/account"
           className="hidden rounded border border-transparent px-2 py-1 leading-tight hover:border-white md:block"
         >
-          <div className="text-xs">Hello, demo</div>
-          <div className="text-sm font-bold">Account &amp; Credits</div>
+          <div className="text-xs">Hello, Demo</div>
+          <div className="text-sm font-bold">Account &amp; Lists</div>
         </Link>
 
         {/* Orders */}

@@ -17,7 +17,8 @@ function categoryIcon(cat?: string) {
 export function ProductDetail({ id }: { id: string }) {
   const [listing, setListing] = useState<ListingDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState(false);
+  const [buying, setBuying] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
   const [reward, setReward] = useState<CreditsResultDTO | null>(null);
 
   function load() {
@@ -30,9 +31,16 @@ export function ProductDetail({ id }: { id: string }) {
   }
   useEffect(load, [id]);
 
-  async function claim() {
+  /** Add to cart — NO credits are awarded here (only on purchase). */
+  function addToCart() {
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 3000);
+  }
+
+  /** Complete the purchase — credits are awarded ONLY here, after a real buy. */
+  async function purchase() {
     if (!listing?.item) return;
-    setClaiming(true);
+    setBuying(true);
     setError(null);
     try {
       const result = await apiClient.awardCredits({
@@ -43,9 +51,9 @@ export function ProductDetail({ id }: { id: string }) {
       });
       setReward(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not complete the action");
+      setError(e instanceof Error ? e.message : "Could not complete the purchase");
     } finally {
-      setClaiming(false);
+      setBuying(false);
     }
   }
 
@@ -116,25 +124,31 @@ export function ProductDetail({ id }: { id: string }) {
             <p className="text-sm text-storm">FREE delivery · {listing.healthCard.warranty}</p>
             <p className="text-lg font-medium text-success">In stock</p>
             <button
-              onClick={claim}
-              disabled={claiming}
-              className="w-full rounded-full bg-amzYellow py-2 text-sm font-medium text-ink hover:bg-amzYellowDark disabled:opacity-50"
+              onClick={addToCart}
+              className="w-full rounded-full bg-amzYellow py-2 text-sm font-medium text-ink hover:bg-amzYellowDark"
             >
               Add to Cart
             </button>
+            {addedToCart && (
+              <p className="rounded bg-success/10 py-1 text-center text-xs font-medium text-success">
+                ✓ Added to cart (no credits — you earn credits when you buy)
+              </p>
+            )}
             <button
-              onClick={claim}
-              disabled={claiming}
+              onClick={purchase}
+              disabled={buying}
               className="w-full rounded-full bg-amzOrange py-2 text-sm font-medium text-ink hover:bg-amzOrangeDark disabled:opacity-50"
             >
-              {claiming ? "Processing…" : "Give it a second life"}
+              {buying ? "Completing purchase…" : "Buy Now"}
             </button>
-            <p className="text-center text-xs text-storm">Earns ReLoop Credits 🌱</p>
+            <p className="text-center text-xs text-storm">
+              Earn ReLoop Credits 🌱 <span className="font-medium">after purchase</span>
+            </p>
           </div>
         </div>
       </div>
 
-      {error && <div className="mt-4"><ErrorState message={error} onRetry={claim} /></div>}
+      {error && <div className="mt-4"><ErrorState message={error} onRetry={purchase} /></div>}
 
       {/* Trust layer */}
       <div className="mt-6 max-w-2xl">

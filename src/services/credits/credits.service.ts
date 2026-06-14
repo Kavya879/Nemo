@@ -1,9 +1,33 @@
 import type { GreenCredit, RewardRedemption, RoutingConfig } from "@prisma/client";
 import { configRepository } from "@/repositories/config.repository";
 import { creditRepository, type CreditTotals } from "@/repositories/credit.repository";
-import { REWARDS } from "@/config/constants";
+import { REWARDS, type Reward } from "@/config/constants";
 import { ConflictError, NotFoundError } from "@/lib/errors";
 import type { RoutingPath } from "@/types";
+
+/** Generates a human-friendly, unique-enough coupon code, e.g. RL100-7F3K. */
+function generateCouponCode(prefix: string): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 5; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `${prefix}-${suffix}`;
+}
+
+/** A redemption enriched with its catalog details (for the coupons page). */
+export interface RedemptionWithReward {
+  id: string;
+  code: string;
+  rewardId: string;
+  rewardLabel: string;
+  cost: number;
+  createdAt: Date;
+  description: string;
+  redeemUrl: string;
+  redeemAt: string;
+  kind: Reward["kind"];
+}
 
 /**
  * Credits service — calculates Green Credits + CO₂ and cost saved for a
@@ -96,9 +120,30 @@ export function createCreditsService() {
         rewardId: reward.id,
         rewardLabel: reward.label,
         cost: reward.cost,
+        code: generateCouponCode(reward.codePrefix),
       });
       const updated = await creditRepository.totalsForUser(userId);
       return { redemption, totals: updated };
+    },
+
+    /** Redeemed coupons for a user, enriched with catalog details + redeem link. */
+    async redemptions(userId = "demo-user"): Promise<RedemptionWithReward[]> {
+      const rows = await creditRepository.listRedemptions(userId);
+      return rows.map((r) => {
+        const reward = REWARDS.find((x) => x.id === r.rewardId);
+        return {
+          id: r.id,
+          code: r.code,
+          rewardId: r.rewardId,
+          rewardLabel: r.rewardLabel,
+          cost: r.cost,
+          createdAt: r.createdAt,
+          description: reward?.description ?? r.rewardLabel,
+          redeemUrl: reward?.redeemUrl ?? "/marketplace",
+          redeemAt: reward?.redeemAt ?? "ReLoop Marketplace",
+          kind: reward?.kind ?? "voucher",
+        };
+      });
     },
   };
 }

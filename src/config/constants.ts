@@ -48,40 +48,58 @@ export interface Reward {
   cost: number; // credits required
   icon: string;
   kind: "voucher" | "perk" | "donation";
+  /** Prefix for the issued coupon code. */
+  codePrefix: string;
+  /** Where the coupon can be redeemed. */
+  redeemUrl: string;
+  /** Short label for the redeem destination. */
+  redeemAt: string;
 }
 
 export const REWARDS: Reward[] = [
   {
     id: "voucher-100",
     label: "₹100 off",
-    description: "₹100 voucher toward your next order.",
+    description: "₹100 voucher toward your next ReLoop order. Apply at checkout.",
     cost: 100,
     icon: "🎟️",
     kind: "voucher",
+    codePrefix: "RL100",
+    redeemUrl: "/marketplace",
+    redeemAt: "ReLoop Marketplace",
   },
   {
     id: "voucher-250",
     label: "₹250 off",
-    description: "₹250 voucher toward your next order.",
+    description: "₹250 voucher toward your next ReLoop order. Apply at checkout.",
     cost: 250,
     icon: "🎟️",
     kind: "voucher",
+    codePrefix: "RL250",
+    redeemUrl: "/marketplace",
+    redeemAt: "ReLoop Marketplace",
   },
   {
     id: "free-delivery",
     label: "Free delivery (30 days)",
-    description: "Unlimited free delivery for a month.",
+    description: "Unlimited free delivery for a month. Apply at checkout.",
     cost: 150,
     icon: "🚚",
     kind: "perk",
+    codePrefix: "RLSHIP",
+    redeemUrl: "/marketplace",
+    redeemAt: "ReLoop Marketplace",
   },
   {
     id: "plant-tree",
     label: "Plant a tree",
-    description: "We plant a tree on your behalf.",
+    description: "We plant a tree on your behalf via our reforestation partner.",
     cost: 80,
     icon: "🌳",
     kind: "donation",
+    codePrefix: "RLTREE",
+    redeemUrl: "https://www.grow-trees.com",
+    redeemAt: "Grow-Trees (partner)",
   },
 ];
 

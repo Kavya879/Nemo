@@ -10,6 +10,7 @@ import type {
   PreventionResultDTO,
   PriceResultDTO,
   RedeemResultDTO,
+  RedemptionDTO,
   ReturnDTO,
   RewardDTO,
   RoutingResultDTO,
@@ -98,6 +99,26 @@ export const apiClient = {
   health: () => request<{ status: string; db: string }>("/api/health"),
 
   getItems: () => request<ItemDTO[]>("/api/items"),
+
+  createItem: (input: {
+    name: string;
+    category: string;
+    brand?: string;
+    originalPrice: number;
+    repairability?: number;
+  }) =>
+    request<ItemDTO>("/api/items", { method: "POST", body: JSON.stringify(input) }),
+
+  cancelReturn: (itemId: string, userId?: string) =>
+    request<{ cancelled: boolean }>("/api/returns/cancel", {
+      method: "POST",
+      body: JSON.stringify({ itemId, userId }),
+    }),
+
+  getRedemptions: (userId?: string) =>
+    request<RedemptionDTO[]>(
+      `/api/credits/redemptions${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
+    ),
 
   getOrders: (userId?: string) =>
     request<EligibleOrderDTO[]>(

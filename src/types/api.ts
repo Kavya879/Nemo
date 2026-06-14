@@ -8,6 +8,15 @@ import { RoutingContextSchema } from "@/services/routing/types";
  * frontend client can mirror them.
  */
 
+export const CreateItemRequestSchema = z.object({
+  name: z.string().min(1),
+  category: z.string().min(1),
+  brand: z.string().optional(),
+  originalPrice: z.number().positive(),
+  repairability: z.number().min(0).max(1).optional(),
+});
+export type CreateItemRequest = z.infer<typeof CreateItemRequestSchema>;
+
 export const ReturnRequestSchema = z.object({
   itemId: z.string().min(1),
   reason: z.string().min(1),
