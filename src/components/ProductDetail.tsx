@@ -7,13 +7,10 @@ import { apiClient } from "@/lib/api-client";
 import { useCart, type CartLine } from "@/lib/cart";
 import type { ListingDTO } from "@/types/dto";
 import { ProductHealthCard } from "@/components/ProductHealthCard";
+import { ProductImage } from "@/components/ProductImage";
 import { PreventionBanner } from "@/components/PreventionBanner";
 import { GradeBadge } from "@/components/GradeBadge";
 import { LoadingState, ErrorState } from "@/components/flow/States";
-
-function categoryIcon(cat?: string) {
-  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : "📦";
-}
 
 export function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -77,9 +74,12 @@ export function ProductDetail({ id }: { id: string }) {
       <div className="grid grid-cols-1 gap-6 rounded bg-white p-5 lg:grid-cols-12">
         {/* Image */}
         <div className="lg:col-span-4">
-          <div className="flex h-80 items-center justify-center rounded bg-mist/40 text-8xl">
-            {categoryIcon(category)}
-          </div>
+          <ProductImage
+            src={listing.item?.imageUrl}
+            category={category}
+            alt={listing.title}
+            className="h-80 w-full rounded"
+          />
         </div>
 
         {/* Center details */}

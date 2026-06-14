@@ -50,6 +50,7 @@ enum ListingStatus {
 enum GradedBy {
   bedrock
   local
+  clip
 }
 
 enum OrderStatus {
@@ -110,6 +111,8 @@ model Item {
   category      String
   brand         String?
   originalPrice Float
+  /// Reference product image (the "passport" baseline the return photo is compared to).
+  imageUrl      String?
   currentGrade  Grade?
   status        ItemStatus  @default(RETURNED)
   /// Append-only ownership trail, e.g. [{ owner, from, to }].

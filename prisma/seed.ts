@@ -127,6 +127,18 @@ interface CatalogEntry {
 }
 
 const PRICE_PCT: Record<Grade, number> = { A: 0.85, B: 0.675, C: 0.475, D: 0.175 };
+
+// Category-representative reference product images (public Unsplash, hotlinkable).
+// In production each SKU would carry its own catalog image; these give the model
+// a real, category-relevant baseline to compare the return photo against.
+const CATEGORY_IMAGE: Record<string, string> = {
+  Footwear: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&q=70",
+  Electronics: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=70",
+  Apparel: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=70",
+  Home: "https://images.unsplash.com/photo-1556909212-d5b604d0c90d?w=500&q=70",
+  Books: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&q=70",
+  Toys: "https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=500&q=70",
+};
 const CATEGORY_ICON: Record<string, string> = {
   Footwear: "👟",
   Electronics: "🎧",
@@ -326,18 +338,20 @@ function daysAgo(n: number): Date {
 
 async function seedItems() {
   for (const e of CATALOG) {
+    const imageUrl = CATEGORY_IMAGE[e.category] ?? null;
     const data = {
       name: e.name,
       category: e.category,
       brand: e.brand,
       originalPrice: e.originalPrice,
+      imageUrl,
       currentGrade: e.grade,
       status: "GRADED" as const,
       repairability: e.repairability,
     };
     await prisma.item.upsert({
       where: { id: e.id },
-      update: { currentGrade: e.grade, status: "GRADED", repairability: e.repairability },
+      update: { currentGrade: e.grade, status: "GRADED", repairability: e.repairability, imageUrl },
       create: { id: e.id, ...data },
     });
   }

@@ -45,14 +45,26 @@ export default function AdminMap({ data }: { data: AdminMapDTO }) {
         pathOptions={{ color: "#007185", fillColor: "#007185", fillOpacity: 0.06 }}
       />
 
-      {/* Returner hub */}
+      {/* Returner hub (dynamic — your live location) */}
       <CircleMarker
         center={[origin.lat, origin.lng]}
         radius={10}
         pathOptions={{ color: "#131921", fillColor: "#febd69", fillOpacity: 1 }}
       >
-        <Tooltip permanent direction="top">Returns hub</Tooltip>
+        <Tooltip permanent direction="top">Returns hub (your location)</Tooltip>
       </CircleMarker>
+
+      {/* Real Amazon fulfillment centers */}
+      {data.warehouses.map((w) => (
+        <CircleMarker
+          key={w.name}
+          center={[w.lat, w.lng]}
+          radius={8}
+          pathOptions={{ color: "#232f3e", fillColor: "#232f3e", fillOpacity: 0.85 }}
+        >
+          <Tooltip direction="top">🏭 {w.name}</Tooltip>
+        </CircleMarker>
+      ))}
 
       {/* Buyers (blue) */}
       {buyers.map((b) => (

@@ -5,13 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { apiClient } from "@/lib/api-client";
 import type { AdminCaseRowDTO } from "@/types/dto";
 import { GradeBadge } from "@/components/GradeBadge";
+import { ProductImage } from "@/components/ProductImage";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 import { DecisionExplorer } from "./DecisionExplorer";
-
-function icon(cat: string) {
-  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : cat === "Books" ? "📚" : cat === "Toys" ? "🧸" : "🍳";
-}
 
 function statusTone(s: string): "success" | "info" | "warn" | "danger" | "neutral" {
   if (["COMPLETED", "RETURNED_TO_SELLER", "TRANSFER_APPROVED"].includes(s)) return "success";
@@ -86,9 +83,12 @@ export function CommandCenter() {
                   >
                     <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-9 w-9 items-center justify-center rounded bg-mist/60 text-lg">
-                          {icon(r.category)}
-                        </span>
+                        <ProductImage
+                          src={r.imageUrl}
+                          category={r.category}
+                          alt={r.itemName}
+                          className="h-9 w-9 shrink-0 rounded"
+                        />
                         <div>
                           <div className="font-medium text-ink">{r.itemName}</div>
                           <div className="text-xs text-storm">{r.category}</div>

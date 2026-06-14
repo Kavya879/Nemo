@@ -1,5 +1,7 @@
 import type { ReturnStatus } from "@prisma/client";
-import { CUSTOMER_LOCATION } from "@/config/constants";
+import { CUSTOMER_LOCATION, WAREHOUSES } from "@/config/constants";
+import { nearestWarehouse } from "@/lib/geo";
+import type { GeoPoint } from "@/types";
 import { NotFoundError } from "@/lib/errors";
 import { returnCaseRepository, type ReturnCaseWithRelations } from "@/repositories/return-case.repository";
 import { buyerRepository } from "@/repositories/buyer.repository";
@@ -63,6 +65,7 @@ function toRow(c: ReturnCaseWithRelations) {
     category: c.item.category,
     brand: c.item.brand,
     originalPrice: c.item.originalPrice,
+    imageUrl: c.item.imageUrl,
     grade: c.grade,
     confidence: c.gradeConfidence,
     status: c.status,
@@ -149,14 +152,15 @@ export function createAdminService() {
       };
     },
 
-    /** Matching Map: buyers, return-item origins, and the match connections. */
-    async mapData() {
+    /** Matching Map: buyers, return-item origins, FCs, and match connections. */
+    async mapData(origin: GeoPoint = CUSTOMER_LOCATION) {
       const [buyers, cases, config] = await Promise.all([
         buyerRepository.list(),
         returnCaseRepository.listAll(),
         configRepository.getRules(),
       ]);
       const buyerById = new Map(buyers.map((b) => [b.id, b]));
+      const nearest = nearestWarehouse(origin);
 
       const returns = cases.map((c) => {
         const b = c.reservedBuyerId ? buyerById.get(c.reservedBuyerId) : null;
@@ -174,8 +178,10 @@ export function createAdminService() {
       });
 
       return {
-        origin: CUSTOMER_LOCATION,
+        origin,
         radiusKm: config.matchRadiusKm,
+        nearestWarehouse: { name: nearest.warehouse.name, distanceKm: nearest.distanceKm },
+        warehouses: WAREHOUSES.map((w) => ({ name: w.name, city: w.city, lat: w.lat, lng: w.lng })),
         buyers: buyers.map((b) => ({
           id: b.id,
           name: b.name,

@@ -7,7 +7,13 @@
       "Bash(python -c ' *)",
       "Bash(git commit -q -m 'Seed: richer catalog-driven dataset + clean reset *)",
       "Bash(curl -s http://localhost:3000/api/admin/return-cases)",
-      "Bash(git commit -q -m 'Admin Operations Console: Command Center, Decision Explorer, Matching Map, Live Config, Analytics, Prevention, Listing Review *)"
+      "Bash(git commit -q -m 'Admin Operations Console: Command Center, Decision Explorer, Matching Map, Live Config, Analytics, Prevention, Listing Review *)",
+      "Bash(node -e \"const s=require\\('sharp'\\);s\\(Buffer.from\\(Array.from\\({length:300*300*3},\\(\\)=>Math.floor\\(Math.random\\(\\)*256\\)\\)\\),{raw:{width:300,height:300,channels:3}}\\).jpeg\\({quality:90}\\).toBuffer\\(\\).then\\(b=>process.stdout.write\\(b.toString\\('base64'\\)\\)\\)\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/grade -H 'content-type: application/json' -d '{\"itemId\":\"demo-item-sneakers\",\"images\":[{\"base64\":\"__CMDSUB_OUTPUT__\",\"mimeType\":\"image/jpeg\"}]}')",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://localhost:3000/api/admin/map)",
+      "Bash(python -c \"import sys,json;d=json.load\\(sys.stdin\\)['data'];print\\(' nearest:',d['nearestWarehouse']\\)\")",
+      "Bash(git commit -q -m 'Real CLIP grading model + reference images + real Amazon FCs + dynamic map location \\(#6-9\\) *)"
     ]
   }
 }

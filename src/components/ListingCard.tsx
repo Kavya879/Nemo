@@ -2,12 +2,9 @@
 
 import Link from "next/link";
 import { GradeBadge } from "@/components/GradeBadge";
+import { ProductImage } from "@/components/ProductImage";
 import { useCart } from "@/lib/cart";
 import type { ListingDTO } from "@/types/dto";
-
-function categoryIcon(cat?: string) {
-  return cat === "Footwear" ? "👟" : cat === "Electronics" ? "🎧" : cat === "Apparel" ? "🧥" : "📦";
-}
 
 /** Star row derived from the verified condition confidence (data-driven). */
 function Stars({ rating }: { rating: number }) {
@@ -34,8 +31,13 @@ export function ListingCard({ listing }: { listing: ListingDTO }) {
       href={`/marketplace/${listing.id}`}
       className="flex flex-col gap-2 rounded bg-white p-4 transition-shadow hover:shadow-cardHover"
     >
-      <div className="relative flex h-40 items-center justify-center rounded bg-mist/50 text-6xl">
-        {categoryIcon(listing.item?.category)}
+      <div className="relative h-40 overflow-hidden rounded">
+        <ProductImage
+          src={listing.item?.imageUrl}
+          category={listing.item?.category}
+          alt={listing.title}
+          className="h-full w-full"
+        />
         {inCart > 0 && (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-ember px-2 py-0.5 text-xs font-bold text-squid">
             🛒 {inCart} in cart

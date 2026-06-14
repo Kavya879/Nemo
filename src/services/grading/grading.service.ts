@@ -5,20 +5,20 @@ import { GradeResultSchema, type GradeResult, type ImageInput } from "@/types";
 import type { Prisma } from "@prisma/client";
 import { createBedrockGrader } from "./bedrock-grader";
 import { createLocalGrader } from "./local-grader";
-import type { GraderOutput, ImageGrader } from "./image-grader.interface";
+import { createClipGrader } from "./clip-grader";
+import type { GradeContext, GraderOutput, ImageGrader } from "./image-grader.interface";
 
 /**
  * Grading service — orchestrates the Snap & Grade flow.
  *
  * Responsibilities:
- *  - pick the primary grader from config (env.GRADER_PROVIDER),
+ *  - pick the primary grader from config (env.GRADER_PROVIDER: clip|bedrock|local),
+ *  - load the item's reference product image + category and pass them as context
+ *    so the model can compare the return photo to how the item shipped,
  *  - time the operation,
- *  - fall back to the local grader if the primary throws (resilience),
- *  - persist the GradeResult (when tied to an item) via the repository,
+ *  - fall back to the sharp grader if the primary throws (resilience),
+ *  - persist the GradeResult (when tied to an item),
  *  - return a fully Zod-validated GradeResult.
- *
- * It depends only on the ImageGrader interface + repositories — never on a
- * concrete grader or on Prisma directly.
  */
 
 export interface GradeRequest {
@@ -32,43 +32,67 @@ export interface GradingDeps {
   fallback: ImageGrader;
 }
 
-/** Default wiring: provider chosen by config, local grader as the safety net. */
+/** Default wiring: provider chosen by config, sharp grader as the safety net. */
 function defaultDeps(): GradingDeps {
   const local = createLocalGrader();
-  const primary = env.GRADER_PROVIDER === "local" ? local : createBedrockGrader();
+  const primary =
+    env.GRADER_PROVIDER === "bedrock"
+      ? createBedrockGrader()
+      : env.GRADER_PROVIDER === "clip"
+        ? createClipGrader()
+        : local;
   return { primary, fallback: local };
+}
+
+/** Fetches a reference product image (by URL) into an ImageInput for comparison. */
+async function fetchReference(url: string): Promise<ImageInput | undefined> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ct = res.headers.get("content-type") ?? "";
+    const mimeType = ct.includes("png") ? "image/png" : ct.includes("webp") ? "image/webp" : "image/jpeg";
+    return { base64: buf.toString("base64"), mimeType };
+  } catch {
+    return undefined;
+  }
 }
 
 export function createGradingService(deps: GradingDeps = defaultDeps()) {
   async function runGrader(
     grader: ImageGrader,
     images: ImageInput[],
+    context?: GradeContext,
   ): Promise<{ output: GraderOutput; gradedBy: ImageGrader["name"]; tookMs: number }> {
     const start = performance.now();
-    const output = await grader.grade(images);
+    const output = await grader.grade(images, context);
     const tookMs = Math.round(performance.now() - start);
     return { output, gradedBy: grader.name, tookMs };
   }
 
   return {
     async grade(req: GradeRequest): Promise<GradeResult> {
-      let assessment: {
-        output: GraderOutput;
-        gradedBy: ImageGrader["name"];
-        tookMs: number;
-      };
+      // Build grading context (category + reference product image) from the item.
+      let context: GradeContext | undefined;
+      if (req.itemId) {
+        const item = await itemRepository.findById(req.itemId);
+        if (item) {
+          const reference = item.imageUrl ? await fetchReference(item.imageUrl) : undefined;
+          context = { category: item.category, reference };
+        }
+      }
 
+      let assessment: { output: GraderOutput; gradedBy: ImageGrader["name"]; tookMs: number };
       try {
-        assessment = await runGrader(deps.primary, req.images);
+        assessment = await runGrader(deps.primary, req.images, context);
       } catch (primaryErr) {
-        // Resilience: primary (e.g. Bedrock) failed → fall back to local.
         if (deps.fallback.name === deps.primary.name) throw primaryErr;
         // eslint-disable-next-line no-console
         console.warn(
           `[grading] primary grader "${deps.primary.name}" failed, falling back to "${deps.fallback.name}".`,
           primaryErr instanceof Error ? primaryErr.message : primaryErr,
         );
-        assessment = await runGrader(deps.fallback, req.images);
+        assessment = await runGrader(deps.fallback, req.images, context);
       }
 
       const result: GradeResult = GradeResultSchema.parse({
@@ -77,7 +101,6 @@ export function createGradingService(deps: GradingDeps = defaultDeps()) {
         tookMs: assessment.tookMs,
       });
 
-      // Persist only when grading a known item.
       if (req.itemId) {
         await gradeRepository.create({
           grade: result.grade,

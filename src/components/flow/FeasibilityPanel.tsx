@@ -19,7 +19,11 @@ export function FeasibilityPanel({
 }) {
   const costs: Array<[string, number, string?]> = [
     ["Pickup cost", f.pickupCost],
-    ["Transportation cost", f.transportationCost, `${Math.round(f.distanceKm)} km to warehouse`],
+    [
+      "Transportation cost",
+      f.transportationCost,
+      `${Math.round(f.distanceKm)} km${f.nearestWarehouse ? ` → ${f.nearestWarehouse}` : ""}`,
+    ],
     ["Warehouse handling", f.warehouseHandlingCost],
     ["Inspection cost", f.inspectionCost],
     ["Repackaging cost", f.repackagingCost],

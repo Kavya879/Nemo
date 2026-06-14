@@ -175,7 +175,10 @@ export const apiClient = {
   adminCases: () => request<AdminCaseRowDTO[]>("/api/admin/return-cases"),
   adminCaseDetail: (id: string) =>
     request<AdminCaseDetailDTO>(`/api/admin/return-cases/${id}`),
-  adminMap: () => request<AdminMapDTO>("/api/admin/map"),
+  adminMap: (coords?: { lat: number; lng: number }) =>
+    request<AdminMapDTO>(
+      `/api/admin/map${coords ? `?lat=${coords.lat}&lng=${coords.lng}` : ""}`,
+    ),
   adminAnalytics: () => request<AdminAnalyticsDTO>("/api/admin/analytics"),
   adminPrevention: () => request<AdminPreventionDTO[]>("/api/admin/prevention"),
   adminConfig: () => request<AdminConfigDTO>("/api/admin/config"),

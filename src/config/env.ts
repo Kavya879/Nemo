@@ -34,8 +34,14 @@ const envSchema = z.object({
     .string()
     .min(1, "UPSTASH_REDIS_REST_TOKEN is required"),
 
-  // Grading provider selection
-  GRADER_PROVIDER: z.enum(["bedrock", "local"]).default("bedrock"),
+  // Grading provider selection:
+  //  - "clip"   → Transformers.js CLIP (open-source, in-process, reference-aware)
+  //  - "bedrock"→ AWS Bedrock Claude vision
+  //  - "local"  → sharp image-statistics heuristic (always-available fallback)
+  GRADER_PROVIDER: z.enum(["clip", "bedrock", "local"]).default("clip"),
+
+  // CLIP model for the open-source grader (auto-downloaded from the HF hub).
+  CLIP_MODEL: z.string().default("Xenova/clip-vit-base-patch16"),
 
   // AWS Bedrock — required only when the bedrock grader is actually invoked.
   // Kept optional at startup so the app can run on the local fallback alone.

@@ -39,9 +39,35 @@ export const EARTH_RADIUS_KM = 6371;
 
 /**
  * Demo customer location (Bengaluru). In production this comes from the order's
- * shipping address; centralized here so it isn't sprinkled through the code.
+ * shipping address (or live geolocation); centralized so it isn't sprinkled around.
  */
 export const CUSTOMER_LOCATION = { lat: 12.9716, lng: 77.5946 };
+
+/**
+ * Real Amazon India fulfillment-center locations (publicly-known, city-level
+ * coordinates). Reverse-logistics distance is measured to the NEAREST of these,
+ * and they're shown on the admin matching map.
+ */
+export interface Warehouse {
+  name: string;
+  city: string;
+  lat: number;
+  lng: number;
+}
+
+export const WAREHOUSES: Warehouse[] = [
+  { name: "Amazon FC BLR (Hoskote)", city: "Bengaluru", lat: 13.0716, lng: 77.7173 },
+  { name: "Amazon FC HYD", city: "Hyderabad", lat: 17.4399, lng: 78.3776 },
+  { name: "Amazon FC BOM (Bhiwandi)", city: "Mumbai", lat: 19.2967, lng: 73.0631 },
+  { name: "Amazon FC DEL (Manesar)", city: "Delhi NCR", lat: 28.3927, lng: 76.9645 },
+  { name: "Amazon FC MAA (Sriperumbudur)", city: "Chennai", lat: 12.9675, lng: 79.943 },
+  { name: "Amazon FC CCU", city: "Kolkata", lat: 22.58, lng: 88.3639 },
+  { name: "Amazon FC AMD", city: "Ahmedabad", lat: 23.0225, lng: 72.5714 },
+  { name: "Amazon FC PNQ (Chakan)", city: "Pune", lat: 18.76, lng: 73.84 },
+  { name: "Amazon FC JAI", city: "Jaipur", lat: 26.9124, lng: 75.7873 },
+  { name: "Amazon FC LKO", city: "Lucknow", lat: 26.8467, lng: 80.9462 },
+  { name: "Amazon FC CJB", city: "Coimbatore", lat: 11.0168, lng: 76.9558 },
+];
 
 /**
  * Reward catalog for redeeming Green Credits. Stable app config (not a secret,

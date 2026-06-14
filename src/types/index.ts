@@ -30,7 +30,7 @@ export const GradeResultSchema = z.object({
   confidence: z.number().min(0).max(1),
   flaws: z.array(DetectedFlawSchema),
   summary: z.string(),
-  gradedBy: z.enum(["bedrock", "local"]),
+  gradedBy: z.enum(["bedrock", "local", "clip"]),
   tookMs: z.number().int().nonnegative(),
 });
 export type GradeResult = z.infer<typeof GradeResultSchema>;

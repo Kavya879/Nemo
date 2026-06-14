@@ -1,6 +1,6 @@
 import type { RoutingConfig } from "@prisma/client";
 import { configRepository } from "@/repositories/config.repository";
-import { haversineKm } from "@/lib/geo";
+import { nearestWarehouse } from "@/lib/geo";
 import { pricingService } from "@/services/pricing/pricing.service";
 import { inr } from "@/services/routing/types";
 import type { Grade, GeoPoint } from "@/types";
@@ -60,6 +60,7 @@ export interface FeasibilityResult {
   netRecoveryValue: number;
   recoveryRatio: number;
   distanceKm: number;
+  nearestWarehouse?: string;
   decision: "FEASIBLE" | "NOT_FEASIBLE";
   reasoning: string;
 }
@@ -172,12 +173,10 @@ export function createFeasibilityService() {
         demandCount: req.demandCount,
       });
 
-      const distanceKm = haversineKm(req.customerLocation, {
-        lat: config.warehouseLat,
-        lng: config.warehouseLng,
-      });
+      // Reverse-logistics distance is measured to the NEAREST real Amazon FC.
+      const { warehouse, distanceKm } = nearestWarehouse(req.customerLocation);
 
-      return computeFeasibility(
+      const result = computeFeasibility(
         {
           grade: req.grade,
           originalValue: req.originalPrice,
@@ -197,6 +196,7 @@ export function createFeasibilityService() {
           feasibilityRatio: config.feasibilityRatio,
         },
       );
+      return { ...result, nearestWarehouse: warehouse.name };
     },
   };
 }

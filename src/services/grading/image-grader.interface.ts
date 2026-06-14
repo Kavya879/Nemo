@@ -18,9 +18,17 @@ export const GraderOutputSchema = z.object({
 });
 export type GraderOutput = z.infer<typeof GraderOutputSchema>;
 
+/** Optional context that helps graders reason (reference product image, etc.). */
+export interface GradeContext {
+  /** The item's category, e.g. "Footwear". */
+  category?: string;
+  /** The original/reference product image to compare the return photo against. */
+  reference?: ImageInput;
+}
+
 export interface ImageGrader {
-  /** Stable identifier stored on the GradeResult ("bedrock" | "local"). */
-  readonly name: "bedrock" | "local";
+  /** Stable identifier stored on the GradeResult. */
+  readonly name: "bedrock" | "local" | "clip";
   /** Assess one or more product images and return a structured grade. */
-  grade(images: ImageInput[]): Promise<GraderOutput>;
+  grade(images: ImageInput[], context?: GradeContext): Promise<GraderOutput>;
 }

@@ -61,6 +61,7 @@ export interface ItemDTO {
   category: string;
   brand: string | null;
   originalPrice: number;
+  imageUrl: string | null;
   currentGrade: Grade | null;
   status: string;
   repairability: number;
@@ -175,6 +176,7 @@ export interface AdminCaseRowDTO {
   category: string;
   brand: string | null;
   originalPrice: number;
+  imageUrl: string | null;
   grade: Grade | null;
   confidence: number | null;
   status: string;
@@ -214,6 +216,8 @@ export interface AdminCaseDetailDTO {
 export interface AdminMapDTO {
   origin: { lat: number; lng: number };
   radiusKm: number;
+  nearestWarehouse: { name: string; distanceKm: number };
+  warehouses: { name: string; city: string; lat: number; lng: number }[];
   buyers: { id: string; name: string; lat: number; lng: number; wishlist: string[] }[];
   returns: {
     id: string;
@@ -286,6 +290,7 @@ export interface FeasibilityDTO {
   netRecoveryValue: number;
   recoveryRatio: number;
   distanceKm: number;
+  nearestWarehouse?: string;
   decision: "FEASIBLE" | "NOT_FEASIBLE";
   reasoning: string;
 }

@@ -1,0 +1,163 @@
+import { env } from "@/config/env";
+import { UpstreamError, ValidationError } from "@/lib/errors";
+import type { DetectedFlaw, Grade, ImageInput } from "@/types";
+import {
+  GraderOutputSchema,
+  type GradeContext,
+  type GraderOutput,
+  type ImageGrader,
+} from "./image-grader.interface";
+
+/**
+ * CLIP grader — an open-source vision model (HuggingFace CLIP via Transformers.js)
+ * that runs in-process on CPU, no external service.
+ *
+ * Two real signals drive the grade:
+ *  1. Zero-shot condition classification — CLIP scores the return photo against
+ *     condition prompts ("brand new flawless …" → "broken / badly damaged …"),
+ *     which maps directly to grades A–D.
+ *  2. Reference comparison (the Product Passport) — CLIP image embeddings of the
+ *     return photo vs the original product image; low cosine similarity means the
+ *     item deviates from how it shipped (extra wear / wrong item), which lowers
+ *     the grade and raises a flaw.
+ */
+
+const GRADES_ORDER: Grade[] = ["A", "B", "C", "D"];
+
+type ZeroShot = (image: unknown, labels: string[]) => Promise<Array<{ label: string; score: number }>>;
+type Extractor = (image: unknown, opts?: Record<string, unknown>) => Promise<{ data: Float32Array | number[] }>;
+
+let zeroShotP: Promise<ZeroShot> | null = null;
+let extractorP: Promise<Extractor> | null = null;
+
+async function rawImageFromInput(image: ImageInput) {
+  const { RawImage } = await import("@xenova/transformers");
+  const bytes = Buffer.from(image.base64, "base64");
+  const blob = new Blob([bytes], { type: image.mimeType });
+  return RawImage.fromBlob(blob);
+}
+
+async function getZeroShot(): Promise<ZeroShot> {
+  if (!zeroShotP) {
+    zeroShotP = (async () => {
+      const { pipeline } = await import("@xenova/transformers");
+      return (await pipeline("zero-shot-image-classification", env.CLIP_MODEL)) as unknown as ZeroShot;
+    })();
+  }
+  return zeroShotP;
+}
+
+async function getExtractor(): Promise<Extractor> {
+  if (!extractorP) {
+    extractorP = (async () => {
+      const { pipeline } = await import("@xenova/transformers");
+      return (await pipeline("image-feature-extraction", env.CLIP_MODEL)) as unknown as Extractor;
+    })();
+  }
+  return extractorP;
+}
+
+function cosine(a: Float32Array | number[], b: Float32Array | number[]): number {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+const CONDITION_PROMPTS = (category: string) => [
+  `a brand new, flawless ${category} in pristine condition`,
+  `a lightly used ${category} in good condition with minor wear`,
+  `a used ${category} with visible scratches, stains or wear`,
+  `a broken or badly damaged ${category}`,
+];
+
+export function createClipGrader(): ImageGrader {
+  return {
+    name: "clip",
+    async grade(images: ImageInput[], context?: GradeContext): Promise<GraderOutput> {
+      if (images.length === 0) {
+        throw new ValidationError("CLIP grader received no images.");
+      }
+      const category = (context?.category ?? "product").toLowerCase();
+
+      let grade: Grade;
+      let conditionScore: number;
+      let topLabelIdx: number;
+      try {
+        const classify = await getZeroShot();
+        const raw = await rawImageFromInput(images[0]);
+        const labels = CONDITION_PROMPTS(category);
+        const results = await classify(raw, labels);
+        // Map the winning prompt back to its grade by index.
+        const top = results[0];
+        topLabelIdx = Math.max(labels.indexOf(top.label), 0);
+        grade = GRADES_ORDER[topLabelIdx] ?? "C";
+        conditionScore = top.score;
+      } catch (err) {
+        throw new UpstreamError("CLIP inference failed.", {
+          cause: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      // Reference comparison (Product Passport) — optional.
+      let similarity: number | null = null;
+      if (context?.reference) {
+        try {
+          const extract = await getExtractor();
+          const [a, b] = await Promise.all([
+            extract(await rawImageFromInput(images[0]), { pooling: "mean", normalize: true }),
+            extract(await rawImageFromInput(context.reference), { pooling: "mean", normalize: true }),
+          ]);
+          similarity = Number(cosine(a.data, b.data).toFixed(3));
+        } catch {
+          similarity = null; // reference unavailable → fall back to zero-shot only
+        }
+      }
+
+      // A strong deviation from the reference nudges the grade down one step.
+      const deviates = similarity != null && similarity < 0.6;
+      if (deviates && grade !== "D") {
+        grade = GRADES_ORDER[Math.min(GRADES_ORDER.indexOf(grade) + 1, 3)];
+      }
+
+      const flaws: DetectedFlaw[] = [];
+      if (grade !== "A") {
+        const severity = grade === "D" ? "severe" : grade === "C" ? "moderate" : "minor";
+        flaws.push({
+          type: topLabelIdx >= 3 ? "structural damage" : "surface wear/scratches",
+          severity,
+          location: "general",
+        });
+      }
+      if (deviates) {
+        flaws.push({
+          type: "deviation from reference product",
+          severity: "moderate",
+          location: "overall appearance",
+        });
+      }
+
+      const confidence = Number(
+        Math.min(0.99, conditionScore * (similarity != null ? 0.85 + similarity * 0.15 : 1)).toFixed(3),
+      );
+
+      const refNote =
+        similarity != null
+          ? ` Reference match ${Math.round(similarity * 100)}%${deviates ? " — notable deviation from the original product" : ""}.`
+          : "";
+
+      return GraderOutputSchema.parse({
+        grade,
+        confidence,
+        flaws,
+        summary: `CLIP zero-shot condition: Grade ${grade}.${refNote}`,
+      });
+    },
+  };
+}
