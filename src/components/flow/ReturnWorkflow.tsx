@@ -14,6 +14,7 @@ import { FeasibilityPanel } from "./FeasibilityPanel";
 import { WorkflowTracker } from "./WorkflowTracker";
 import { Countdown } from "./Countdown";
 import { EventTimeline } from "./EventTimeline";
+import { PhotoUploader, type UploadedPhoto } from "./PhotoUploader";
 
 const REASONS = [
   "Size too small",
@@ -22,23 +23,6 @@ const REASONS = [
   "Defective on arrival",
   "Changed my mind",
 ];
-
-type Img = { base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; preview: string };
-
-function fileToImage(file: File): Promise<Img> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result);
-      const base64 = result.split(",")[1] ?? "";
-      const mime =
-        file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
-      resolve({ base64, mimeType: mime, preview: result });
-    };
-    reader.onerror = () => reject(new Error("Could not read image"));
-    reader.readAsDataURL(file);
-  });
-}
 
 const TERMINAL = ["RETURNED_TO_SELLER", "COMPLETED", "TRANSFER_REJECTED", "LIQUIDATED"];
 
@@ -50,7 +34,7 @@ export function ReturnWorkflow() {
   const [orders, setOrders] = useState<EligibleOrderDTO[]>([]);
   const [selected, setSelected] = useState<ItemDTO | null>(null);
   const [reason, setReason] = useState(REASONS[0]);
-  const [photo, setPhoto] = useState<Img | null>(null);
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
 
   // case
   const [rc, setRc] = useState<ReturnCaseDTO | null>(null);
@@ -76,11 +60,6 @@ export function ReturnWorkflow() {
   const describe = (e: unknown) =>
     e instanceof ApiError ? `${e.message}` : e instanceof Error ? e.message : "Something went wrong";
 
-  async function onPickFile(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setPhoto(await fileToImage(files[0]));
-  }
-
   // Step 1: initiate → grade → analyze (the AI grading runs first, then feasibility)
   async function start() {
     if (!selected) return;
@@ -91,9 +70,9 @@ export function ReturnWorkflow() {
       const created = await apiClient.initiateReturnCase(selected.id, reason);
       setRc(created);
 
-      setBusyLabel("Running AI grading on your photo…");
-      const images = photo
-        ? [{ base64: photo.base64, mimeType: photo.mimeType }]
+      setBusyLabel("Running AI grading on your photos…");
+      const images = photos.length
+        ? photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType }))
         : [{ base64: TINY_PNG, mimeType: "image/png" as const }];
       const graded = await apiClient.gradeCase(created.id, images);
       setRc(graded);
@@ -209,40 +188,8 @@ export function ReturnWorkflow() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold">Photo (for AI grading)</label>
-                {!photo ? (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => onPickFile(e.target.files)}
-                    className="block w-full text-sm"
-                  />
-                ) : (
-                  <div className="relative inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.preview}
-                      alt="return photo"
-                      className="h-24 w-24 rounded border border-line object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPhoto(null)}
-                      aria-label="Discard photo"
-                      title="Discard and choose another"
-                      className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-danger text-sm font-bold text-white shadow hover:opacity-90"
-                    >
-                      ×
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPhoto(null)}
-                      className="mt-1 block text-xs font-medium text-link hover:underline"
-                    >
-                      Discard &amp; choose another
-                    </button>
-                  </div>
-                )}
+                <label className="mb-1 block text-sm font-semibold">Photos (for AI grading)</label>
+                <PhotoUploader photos={photos} onChange={setPhotos} />
               </div>
               {error && <ErrorState message={error} />}
               <Button size="lg" disabled={busy} onClick={start}>

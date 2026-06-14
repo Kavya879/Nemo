@@ -1,6 +1,7 @@
 import type { Item, Order } from "@prisma/client";
 import { configRepository } from "@/repositories/config.repository";
 import { orderRepository } from "@/repositories/order.repository";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 
 /**
  * Orders service — returns a customer's orders annotated with return
@@ -25,19 +26,22 @@ export interface EligibilityCheck {
 }
 
 function computeEligibility(
-  deliveredAt: Date,
+  deliveredAt: Date | null,
   status: string,
   windowDays: number,
   now: number,
 ): EligibilityCheck {
+  if (status === "CANCELLED") {
+    return { eligible: false, reason: "Order was cancelled.", daysLeft: 0 };
+  }
+  if (status === "RETURNED" || status === "RETURN_REQUESTED") {
+    return { eligible: false, reason: "A return is already in progress.", daysLeft: 0 };
+  }
+  if (status !== "DELIVERED" || !deliveredAt) {
+    return { eligible: false, reason: "Order not delivered yet.", daysLeft: 0 };
+  }
   const deadline = new Date(deliveredAt).getTime() + windowDays * DAY_MS;
   const daysLeft = Math.ceil((deadline - now) / DAY_MS);
-  if (status === "RETURNED" || status === "RETURN_REQUESTED") {
-    return { eligible: false, reason: "A return is already in progress.", daysLeft };
-  }
-  if (status !== "DELIVERED") {
-    return { eligible: false, reason: "Order not delivered yet.", daysLeft };
-  }
   if (now > deadline) {
     return {
       eligible: false,
@@ -88,6 +92,19 @@ export function createOrdersService(now: () => number = () => Date.now()) {
         now(),
       );
       return { ...e, orderId: order.id };
+    },
+
+    /** Cancel an order before delivery (allowed while PLACED or SHIPPED). */
+    async cancelOrder(orderId: string): Promise<Order> {
+      const order = await orderRepository.findById(orderId);
+      if (!order) throw new NotFoundError(`Order ${orderId} not found.`);
+      if (order.status === "CANCELLED") return order;
+      if (order.status === "DELIVERED" || order.status === "RETURNED" || order.status === "RETURN_REQUESTED") {
+        throw new ConflictError(
+          "This order has already been delivered and can no longer be cancelled. Start a return instead.",
+        );
+      }
+      return orderRepository.updateStatus(orderId, "CANCELLED");
     },
   };
 }

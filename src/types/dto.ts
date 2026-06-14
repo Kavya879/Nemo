@@ -135,7 +135,7 @@ export interface EligibleOrderDTO {
     itemId: string;
     userId: string;
     orderedAt: string;
-    deliveredAt: string;
+    deliveredAt: string | null;
     status: string;
     item: ItemDTO;
   };

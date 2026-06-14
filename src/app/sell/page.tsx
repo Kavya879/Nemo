@@ -4,14 +4,13 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import type { Grade } from "@/types";
-import type { ListingDTO } from "@/types/dto";
+import type { GradeResultDTO, ListingDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
 import { GradeBadge } from "@/components/GradeBadge";
 import { LoadingState } from "@/components/flow/States";
+import { PhotoUploader, type UploadedPhoto } from "@/components/flow/PhotoUploader";
 
 const CATEGORIES = ["Footwear", "Electronics", "Apparel", "Home", "Books", "Other"];
-const GRADES: Grade[] = ["A", "B", "C", "D"];
 
 function SellInner() {
   const search = useSearchParams();
@@ -22,15 +21,17 @@ function SellInner() {
   const [brand, setBrand] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [askingPrice, setAskingPrice] = useState("");
-  const [grade, setGrade] = useState<Grade>("B");
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
 
   const [prefilling, setPrefilling] = useState<boolean>(!!resellItemId);
   const [locked, setLocked] = useState(false); // fields locked when reselling an owned item
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [busyLabel, setBusyLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<ListingDTO | null>(null);
+  const [aiGrade, setAiGrade] = useState<GradeResultDTO | null>(null);
 
   // Resell flow: prefill from the owned item + enforce "only after return window closes".
   useEffect(() => {
@@ -47,7 +48,6 @@ function SellInner() {
         setCategory(item.category);
         setBrand(item.brand ?? "");
         setOriginalPrice(String(item.originalPrice));
-        if (item.currentGrade) setGrade(item.currentGrade);
         setLocked(true);
 
         // #18: cannot resell while the order is still within its return window.
@@ -67,7 +67,8 @@ function SellInner() {
 
   const mrp = Number(originalPrice) || 0;
   const ask = Number(askingPrice) || 0;
-  const valid = !blockedReason && name.trim() && mrp > 0 && ask > 0 && ask <= mrp;
+  const valid =
+    !blockedReason && name.trim() && mrp > 0 && ask > 0 && ask <= mrp && photos.length > 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,6 +77,7 @@ function SellInner() {
     setError(null);
     try {
       // Reselling an owned item → list the existing item; otherwise create a new one.
+      setBusyLabel("Preparing item…");
       const itemId = resellItemId
         ? resellItemId
         : (
@@ -87,14 +89,27 @@ function SellInner() {
             })
           ).id;
 
+      // #19: AI grades the uploaded photos — the listing condition + Product
+      // Health Card come from the grading result, not a self-declared value.
+      setBusyLabel("AI grading your photos…");
+      const graded = await apiClient.grade(
+        photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType })),
+        itemId,
+      );
+      setAiGrade(graded);
+
+      setBusyLabel("Creating your listing…");
       const listing = await apiClient.createListing({
         itemId,
-        grade,
-        confidence: 0.85,
-        flaws: [],
+        grade: graded.grade,
+        confidence: graded.confidence,
+        flaws: graded.flaws,
         price: ask,
         pricePct: Number((ask / mrp).toFixed(3)),
-        history: [resellItemId ? "Resold by owner (return window closed)" : "Listed by seller on ReLoop"],
+        history: [
+          resellItemId ? "Resold by owner (return window closed)" : "Listed by seller on ReLoop",
+          `AI-graded ${graded.grade} (${Math.round(graded.confidence * 100)}% confidence)`,
+        ],
       });
       setCreated(listing);
     } catch (err) {
@@ -112,6 +127,13 @@ function SellInner() {
         <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-3xl">✅</div>
         <h1 className="text-2xl font-bold">Your item is live!</h1>
         <p className="mt-1 text-sm text-storm">{created.title}</p>
+        {aiGrade && (
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <span className="text-sm text-storm">AI-verified condition:</span>
+            <GradeBadge grade={aiGrade.grade} showLabel />
+            <span className="text-xs text-storm">({Math.round(aiGrade.confidence * 100)}%)</span>
+          </div>
+        )}
         <p className="mt-1 text-2xl font-bold text-priceRed">₹{created.price.toLocaleString("en-IN")}</p>
         <div className="mt-5 flex justify-center gap-3">
           <Link href={`/marketplace/${created.id}`}>
@@ -208,25 +230,20 @@ function SellInner() {
         )}
 
         <div>
-          <label className="mb-1 block text-sm font-semibold">Condition</label>
-          <div className="flex gap-2">
-            {GRADES.map((g) => (
-              <button
-                type="button"
-                key={g}
-                onClick={() => setGrade(g)}
-                className={`rounded border px-3 py-2 ${grade === g ? "border-ember ring-2 ring-zest" : "border-line"}`}
-              >
-                <GradeBadge grade={g} size="sm" />
-              </button>
-            ))}
-          </div>
+          <label className="mb-1 block text-sm font-semibold">
+            Photos for AI grading * (the Product Health Card / passport)
+          </label>
+          <p className="mb-2 text-xs text-storm">
+            Our AI inspects your photos and verifies the condition grade — you don&apos;t set it
+            manually.
+          </p>
+          <PhotoUploader photos={photos} onChange={setPhotos} />
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}
 
         <Button type="submit" size="lg" disabled={!valid || submitting} className="w-full">
-          {submitting ? "Listing…" : "List my item for second life"}
+          {submitting ? busyLabel || "Listing…" : "AI-grade & list my item"}
         </Button>
       </form>
     </div>

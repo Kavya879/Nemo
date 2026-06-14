@@ -19,6 +19,10 @@ export const orderRepository = {
     });
   },
 
+  async findById(id: string): Promise<Order | null> {
+    return prisma.order.findUnique({ where: { id } });
+  },
+
   async findByItem(itemId: string, userId: string): Promise<OrderWithItem | null> {
     return prisma.order.findFirst({
       where: { itemId, userId },

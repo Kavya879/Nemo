@@ -14,7 +14,7 @@ function categoryIcon(cat?: string) {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<EligibleOrderDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   function load() {
     setError(null);
@@ -26,15 +26,16 @@ export default function OrdersPage() {
   }
   useEffect(load, []);
 
-  async function cancelReturn(itemId: string) {
-    setCancelling(itemId);
+  async function run(id: string, fn: () => Promise<unknown>, msg: string) {
+    setBusyId(id);
+    setError(null);
     try {
-      await apiClient.cancelReturn(itemId);
+      await fn();
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not cancel the return");
+      setError(e instanceof Error ? e.message : msg);
     } finally {
-      setCancelling(null);
+      setBusyId(null);
     }
   }
 
@@ -47,6 +48,8 @@ export default function OrdersPage() {
       <div className="mt-4 space-y-3">
         {orders?.map((o) => {
           const it = o.order.item;
+          const s = o.order.status;
+          const notDelivered = s === "PLACED" || s === "SHIPPED";
           return (
             <div key={o.order.id} className="overflow-hidden rounded border border-line bg-white">
               <div className="flex items-center justify-between border-b border-line bg-mist/40 px-4 py-2 text-xs text-storm">
@@ -57,10 +60,18 @@ export default function OrdersPage() {
                   </span>
                 </span>
                 <span>
-                  DELIVERED{" "}
-                  <span className="font-medium text-ink">
-                    {new Date(o.order.deliveredAt).toLocaleDateString("en-IN")}
-                  </span>
+                  {o.order.deliveredAt ? (
+                    <>
+                      DELIVERED{" "}
+                      <span className="font-medium text-ink">
+                        {new Date(o.order.deliveredAt).toLocaleDateString("en-IN")}
+                      </span>
+                    </>
+                  ) : s === "CANCELLED" ? (
+                    <span className="font-medium text-danger">CANCELLED</span>
+                  ) : (
+                    <span className="font-medium text-ember">ARRIVING SOON</span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-4 p-4">
@@ -74,7 +85,15 @@ export default function OrdersPage() {
                     {it.category} · ₹{it.originalPrice.toLocaleString("en-IN")}
                   </p>
                   <div className="mt-2">
-                    {o.returnEligible ? (
+                    {s === "CANCELLED" ? (
+                      <Badge tone="danger">Order cancelled</Badge>
+                    ) : s === "RETURNED" ? (
+                      <Badge tone="neutral">Returned</Badge>
+                    ) : s === "RETURN_REQUESTED" ? (
+                      <Badge tone="warn">Return in progress</Badge>
+                    ) : notDelivered ? (
+                      <Badge tone="info">{s === "SHIPPED" ? "Shipped" : "Order placed"}</Badge>
+                    ) : o.returnEligible ? (
                       <Badge tone="success">Returnable · {o.returnDaysLeft} day(s) left</Badge>
                     ) : (
                       <Badge tone="danger">{o.reasonIfNot ?? "Not returnable"}</Badge>
@@ -82,27 +101,44 @@ export default function OrdersPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {o.order.status === "RETURN_REQUESTED" ? (
+                  {/* Before delivery → cancel the order */}
+                  {notDelivered && (
                     <button
-                      onClick={() => cancelReturn(it.id)}
-                      disabled={cancelling === it.id}
+                      onClick={() => run(o.order.id, () => apiClient.cancelOrder(o.order.id), "Could not cancel order")}
+                      disabled={busyId === o.order.id}
                       className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist disabled:opacity-50"
                     >
-                      {cancelling === it.id ? "Cancelling…" : "Cancel return request"}
+                      {busyId === o.order.id ? "Cancelling…" : "Cancel order"}
                     </button>
-                  ) : o.returnEligible ? (
+                  )}
+
+                  {/* Return in progress → cancel the return */}
+                  {s === "RETURN_REQUESTED" && (
+                    <button
+                      onClick={() => run(o.order.id, () => apiClient.cancelReturn(it.id), "Could not cancel return")}
+                      disabled={busyId === o.order.id}
+                      className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist disabled:opacity-50"
+                    >
+                      {busyId === o.order.id ? "Cancelling…" : "Cancel return request"}
+                    </button>
+                  )}
+
+                  {/* Delivered + within window → return */}
+                  {s === "DELIVERED" && o.returnEligible && (
                     <Link
                       href={`/return?itemId=${it.id}`}
                       className="rounded-full bg-amzYellow px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzYellowDark"
                     >
                       Return item
                     </Link>
-                  ) : (
+                  )}
+
+                  {/* Delivered + window closed → resell (#12b, #18) */}
+                  {s === "DELIVERED" && !o.returnEligible && (
                     <>
                       <span className="rounded-full bg-mist px-4 py-2 text-center text-xs text-storm">
                         Return window closed
                       </span>
-                      {/* #18: resale only allowed once the return window is over */}
                       <Link
                         href={`/sell?itemId=${it.id}`}
                         className="rounded-full bg-amzOrange px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzOrangeDark"

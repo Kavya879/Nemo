@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart";
 import { apiClient, ApiError } from "@/lib/api-client";
 import type { CheckoutResultDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
+
+interface Address {
+  name: string;
+  line1: string;
+  city: string;
+  pin: string;
+  state: string;
+}
+const DEFAULT_ADDRESS: Address = {
+  name: "Demo User",
+  line1: "221B, MG Road",
+  city: "Bengaluru",
+  pin: "560001",
+  state: "Karnataka",
+};
+const ADDRESS_KEY = "reloop-address-v1";
 
 const PAYMENT_METHODS = [
   { id: "upi", label: "UPI (Google Pay / PhonePe)" },
@@ -21,6 +37,33 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CheckoutResultDTO | null>(null);
+
+  const [address, setAddress] = useState<Address>(DEFAULT_ADDRESS);
+  const [editingAddr, setEditingAddr] = useState(false);
+  const [draft, setDraft] = useState<Address>(DEFAULT_ADDRESS);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ADDRESS_KEY);
+      if (raw) {
+        const a = JSON.parse(raw) as Address;
+        setAddress(a);
+        setDraft(a);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function saveAddress() {
+    setAddress(draft);
+    setEditingAddr(false);
+    try {
+      localStorage.setItem(ADDRESS_KEY, JSON.stringify(draft));
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function placeOrder() {
     setPlacing(true);
@@ -104,10 +147,61 @@ export default function CheckoutPage() {
         {/* Delivery address */}
         <Card>
           <CardBody>
-            <h2 className="font-bold">Delivering to Demo User</h2>
-            <p className="text-sm text-storm">
-              221B, MG Road, Bengaluru 560001, Karnataka
-            </p>
+            <div className="flex items-start justify-between">
+              <h2 className="font-bold">Delivery address</h2>
+              {!editingAddr && (
+                <button
+                  onClick={() => {
+                    setDraft(address);
+                    setEditingAddr(true);
+                  }}
+                  className="text-sm font-medium text-link hover:text-linkHover hover:underline"
+                >
+                  Change
+                </button>
+              )}
+            </div>
+
+            {!editingAddr ? (
+              <p className="mt-1 text-sm text-storm">
+                <span className="font-medium text-ink">{address.name}</span>
+                <br />
+                {address.line1}, {address.city} {address.pin}, {address.state}
+              </p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {(
+                  [
+                    ["name", "Full name"],
+                    ["line1", "Address"],
+                    ["city", "City"],
+                    ["pin", "PIN code"],
+                    ["state", "State"],
+                  ] as Array<[keyof Address, string]>
+                ).map(([key, label]) => (
+                  <input
+                    key={key}
+                    value={draft[key]}
+                    onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+                    placeholder={label}
+                    aria-label={label}
+                    className="w-full rounded border border-line px-3 py-2 text-sm"
+                  />
+                ))}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={saveAddress}
+                    disabled={!draft.name.trim() || !draft.line1.trim() || !draft.pin.trim()}
+                  >
+                    Use this address
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setEditingAddr(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardBody>
         </Card>
 

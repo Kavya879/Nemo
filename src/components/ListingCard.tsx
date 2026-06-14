@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { GradeBadge } from "@/components/GradeBadge";
+import { useCart } from "@/lib/cart";
 import type { ListingDTO } from "@/types/dto";
 
 function categoryIcon(cat?: string) {
@@ -24,13 +27,20 @@ function Stars({ rating }: { rating: number }) {
 export function ListingCard({ listing }: { listing: ListingDTO }) {
   const grade = listing.healthCard.verifiedCondition;
   const rating = 3 + listing.healthCard.confidence * 2; // 3..5
+  const { lines } = useCart();
+  const inCart = lines.find((l) => l.listingId === listing.id)?.qty ?? 0;
   return (
     <Link
       href={`/marketplace/${listing.id}`}
       className="flex flex-col gap-2 rounded bg-white p-4 transition-shadow hover:shadow-cardHover"
     >
-      <div className="flex h-40 items-center justify-center rounded bg-mist/50 text-6xl">
+      <div className="relative flex h-40 items-center justify-center rounded bg-mist/50 text-6xl">
         {categoryIcon(listing.item?.category)}
+        {inCart > 0 && (
+          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-ember px-2 py-0.5 text-xs font-bold text-squid">
+            🛒 {inCart} in cart
+          </span>
+        )}
       </div>
       <div className="flex items-center justify-between">
         <span className="rounded bg-success/10 px-1.5 py-0.5 text-[11px] font-bold text-success">

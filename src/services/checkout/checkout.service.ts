@@ -1,6 +1,7 @@
 import { creditsService } from "@/services/credits/credits.service";
 import { listingRepository } from "@/repositories/listing.repository";
 import { itemRepository } from "@/repositories/item.repository";
+import { orderRepository } from "@/repositories/order.repository";
 import type { CreditTotals } from "@/repositories/credit.repository";
 
 /**
@@ -53,6 +54,16 @@ export function createCheckoutService() {
         // The listing is now sold; take it off the marketplace.
         await listingRepository.updateStatus(line.listingId, "SOLD").catch(() => undefined);
         await itemRepository.updateStatus(line.itemId, "SOLD").catch(() => undefined);
+
+        // Create the buyer's order (PLACED, not yet delivered → cancellable).
+        await orderRepository
+          .create({
+            userId,
+            orderedAt: new Date(),
+            status: "PLACED",
+            item: { connect: { id: line.itemId } },
+          })
+          .catch(() => undefined);
       }
 
       const totals = await creditsService.totals(userId);

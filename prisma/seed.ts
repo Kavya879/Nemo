@@ -171,7 +171,8 @@ async function seedItems() {
   for (const data of items) {
     await prisma.item.upsert({
       where: { id: data.id as string },
-      update: {},
+      // Reset status/grade so re-seeding fully restores the demo catalog.
+      update: { status: data.status, currentGrade: data.currentGrade },
       create: data,
     });
   }
@@ -299,7 +300,7 @@ async function seedListing() {
   // One ready-made listing so the marketplace isn't empty on first load.
   await prisma.listing.upsert({
     where: { itemId: "demo-item-sneakers" },
-    update: {},
+    update: { status: "ACTIVE", price: 3825, pricePct: 0.85 },
     create: {
       itemId: "demo-item-sneakers",
       title: "Certified Pre-Owned: Nimbus Running Shoes (Grade A)",

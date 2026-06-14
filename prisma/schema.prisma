@@ -58,6 +58,7 @@ enum OrderStatus {
   DELIVERED
   RETURN_REQUESTED
   RETURNED
+  CANCELLED
 }
 
 /// The full lifecycle of a return decision case.
@@ -193,7 +194,8 @@ model Order {
   itemId     String
   item       Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
   orderedAt  DateTime
-  deliveredAt DateTime
+  /// Null until delivered (newly-placed purchases aren't delivered yet).
+  deliveredAt DateTime?
   status     OrderStatus @default(DELIVERED)
   createdAt  DateTime    @default(now())
 

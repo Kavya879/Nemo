@@ -117,6 +117,11 @@ export const apiClient = {
       body: JSON.stringify({ itemId, userId }),
     }),
 
+  cancelOrder: (orderId: string) =>
+    request<{ id: string; status: string }>(`/api/orders/${orderId}/cancel`, {
+      method: "POST",
+    }),
+
   getRedemptions: (userId?: string) =>
     request<RedemptionDTO[]>(
       `/api/credits/redemptions${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
