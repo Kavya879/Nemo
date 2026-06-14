@@ -370,16 +370,17 @@ export function ReturnWorkflow() {
               <h2 className="font-bold">Escalated to manual review</h2>
             </div>
             <p className="text-sm text-storm">
-              This return has been routed to our Operations Review team for a closer look before a
-              grade is assigned. You&apos;ll be notified when the review is complete — you can track
-              progress in the audit trail below.
+              This return has been automatically routed to our Operations Review team — they&apos;ll
+              review your submitted photos and <span className="font-medium">accept or reject</span>{" "}
+              it. You&apos;ll see the outcome here; track progress in the audit trail below.
             </p>
           </CardBody>
         </Card>
       )}
 
-      {/* Escalation: AI gate failed repeatedly → offer human (admin) verification */}
-      {(needsEvidence || inManualReview) && rc.verificationAttempts >= 3 && (
+      {/* Escalation: low product-match after repeated tries → offer admin verification.
+          (MANUAL_REVIEW/fraud cases are auto-escalated above, so only EVIDENCE_REQUESTED here.) */}
+      {needsEvidence && rc.verificationAttempts >= 3 && (
         <Card className="mt-4 border-link/40">
           <CardBody className="space-y-3">
             <div className="flex items-center gap-2">
