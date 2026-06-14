@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
+import { useUser } from "@/lib/user-context";
 
 /**
  * Amazon-style global header: logo, deliver-to, full search bar with category
@@ -23,6 +24,7 @@ export function Navbar() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const { count } = useCart();
+  const { user } = useUser();
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -86,8 +88,18 @@ export function Navbar() {
           href="/account"
           className="hidden rounded border border-transparent px-2 py-1 leading-tight hover:border-white md:block"
         >
-          <div className="text-xs">Hello, Demo</div>
+          <div className="text-xs">Hello, {user.name}</div>
           <div className="text-sm font-bold">Account &amp; Lists</div>
+        </Link>
+
+        {/* Switch / sign in */}
+        <Link
+          href="/login"
+          className="hidden rounded border border-transparent px-2 py-1 leading-tight hover:border-white lg:block"
+          title="Switch account"
+        >
+          <div className="text-xs">Switch</div>
+          <div className="text-sm font-bold">Account</div>
         </Link>
 
         {/* Orders */}

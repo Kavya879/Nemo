@@ -252,10 +252,11 @@ export function createReturnWorkflowService() {
       }
 
       const buyer = matches[0]; // nearest = lowest logistics cost
+      // Buyer identity is stored on the case for the DELIVERY PARTNER only; it is
+      // never surfaced to the reseller. The audit message stays generic.
       await returnCaseRepository.transition(c.id, {
         status: "BUYER_RESERVED",
-        message: `Interested buyer found: ${buyer.name} (${buyer.distanceKm}km away — nearest of ${matches.length}). Product reserved.`,
-        data: { buyer },
+        message: `An interested buyer was found nearby (nearest of ${matches.length} candidate(s)). Product reserved — buyer identity is protected.`,
         patch: {
           reservedBuyerId: buyer.buyerId,
           reservedBuyerName: buyer.name,
@@ -375,6 +376,16 @@ export function createReturnWorkflowService() {
       });
       const disposition = PATH_TO_DISPOSITION[decision.path];
 
+      // #26: a DONATE classification is not auto-executed — the user must choose
+      // to donate through Amazon or discard the request.
+      if (disposition === "DONATED") {
+        return returnCaseRepository.transition(c.id, {
+          status: "DONATION_PENDING",
+          message: `Classified for DONATION. ${decision.reasoning} Awaiting your choice: donate through Amazon, or discard the request.`,
+          patch: { disposition: "DONATED" },
+        });
+      }
+
       await returnCaseRepository.transition(c.id, {
         status: "LIQUIDATION_PICKUP",
         message: "Normal pickup scheduled; delivery partner collecting the product for disposition.",
@@ -391,6 +402,55 @@ export function createReturnWorkflowService() {
         message: `Entered disposition flow → ${disposition}. Routing rationale: ${decision.reasoning}`,
         data: { disposition, routing: decision } as unknown as Prisma.InputJsonValue,
         patch: { disposition },
+      });
+    },
+
+    /** #26: resolve a DONATION_PENDING case — donate through Amazon, or discard. */
+    async donationDecision(input: {
+      caseId: string;
+      action: "donate" | "discard";
+    }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(c.status, ["DONATION_PENDING"], "decide donation");
+
+      if (input.action === "discard") {
+        if (c.secondLifeListingId) {
+          await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
+        }
+        // Item stays with the customer; the return request is discarded.
+        await itemRepository.updateStatus(c.itemId, "GRADED");
+        if (c.orderId) await orderRepository.updateStatus(c.orderId, "DELIVERED");
+        return returnCaseRepository.transition(c.id, {
+          status: "DISCARDED",
+          message: "Donation request discarded by the user. The item stays with the customer.",
+        });
+      }
+
+      // Donate through Amazon → schedule pickup → complete donation.
+      await returnCaseRepository.transition(c.id, {
+        status: "LIQUIDATION_PICKUP",
+        message: "Donation confirmed. Pickup scheduled; delivery partner collecting the item.",
+      });
+      if (c.secondLifeListingId) {
+        await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
+      }
+      await itemRepository.updateStatus(c.itemId, "DONATED");
+      if (c.orderId) await orderRepository.updateStatus(c.orderId, "RETURNED");
+
+      // Donating is a second-life action → award impact credits.
+      const credits = await creditsService.award({
+        action: "DONATE",
+        category: c.item.category,
+        originalPrice: c.item.originalPrice,
+        userId: c.userId,
+        itemId: c.itemId,
+      });
+
+      return returnCaseRepository.transition(c.id, {
+        status: "LIQUIDATED",
+        message: `Donated through Amazon to a partner charity. +${credits.credits} ReLoop Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
+        data: { disposition: "DONATED", credits } as unknown as Prisma.InputJsonValue,
+        patch: { disposition: "DONATED" },
       });
     },
   };

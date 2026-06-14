@@ -83,6 +83,9 @@ enum ReturnStatus {
   WINDOW_EXPIRED
   LIQUIDATION_PICKUP
   LIQUIDATED
+  // Donation classification requires the user's choice
+  DONATION_PENDING
+  DISCARDED
 }
 
 enum ReturnDecision {

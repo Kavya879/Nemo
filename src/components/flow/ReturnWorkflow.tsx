@@ -24,7 +24,7 @@ const REASONS = [
   "Changed my mind",
 ];
 
-const TERMINAL = ["RETURNED_TO_SELLER", "COMPLETED", "TRANSFER_REJECTED", "LIQUIDATED"];
+const TERMINAL = ["RETURNED_TO_SELLER", "COMPLETED", "TRANSFER_REJECTED", "LIQUIDATED", "DISCARDED"];
 
 export function ReturnWorkflow() {
   const router = useRouter();
@@ -247,10 +247,11 @@ export function ReturnWorkflow() {
                   View the live Second Life listing →
                 </Link>
               )}
-              {rc.reservedBuyerName && (
-                <p className="text-sm">
-                  Reserved for <span className="font-semibold">{rc.reservedBuyerName}</span> (
-                  {rc.reservedDistanceKm}km — nearest buyer, lowest logistics cost).
+              {rc.reservedBuyerId && (
+                <p className="rounded bg-success/10 p-2 text-sm text-success">
+                  ✅ An interested buyer was found nearby and the item is reserved. For privacy,
+                  the buyer&apos;s identity and location are not shared with you — our delivery
+                  partner handles the handover.
                 </p>
               )}
 
@@ -276,6 +277,38 @@ export function ReturnWorkflow() {
             </CardBody>
           </Card>
         )}
+
+      {/* #26: donation classification — user chooses donate or discard */}
+      {rc.status === "DONATION_PENDING" && (
+        <Card className="mt-4 border-success/40">
+          <CardBody className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🎁</span>
+              <h2 className="font-bold">This item is classified for donation</h2>
+            </div>
+            <p className="text-sm text-storm">
+              It still works but isn&apos;t economical to resell. You can donate it through Amazon
+              to a partner charity (and earn green credits), or discard this request and keep the
+              item.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={busy}
+                onClick={() => act("Donating through Amazon…", () => apiClient.donationDecision(rc.id, "donate"))}
+              >
+                Donate through Amazon
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => act("Discarding request…", () => apiClient.donationDecision(rc.id, "discard"))}
+              >
+                Discard request (keep item)
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Contextual actions */}
       <div className="mt-4 flex flex-wrap gap-2">
@@ -339,7 +372,11 @@ export function ReturnWorkflow() {
                   ? "📦"
                   : rc.status === "TRANSFER_REJECTED"
                     ? "🚫"
-                    : "♻️"}
+                    : rc.status === "DISCARDED"
+                      ? "🗑️"
+                      : rc.disposition === "DONATED"
+                        ? "🎁"
+                        : "♻️"}
             </div>
             <h2 className="text-xl font-bold">{outcomeTitle(rc)}</h2>
             {rc.rejectionReason && <p className="text-sm text-danger">Reason: {rc.rejectionReason}</p>}
@@ -373,7 +410,9 @@ function outcomeTitle(rc: ReturnCaseDTO): string {
     case "TRANSFER_REJECTED":
       return "Second Life transfer rejected";
     case "LIQUIDATED":
-      return "Routed to disposition flow";
+      return rc.disposition === "DONATED" ? "Donated through Amazon 🎁" : "Routed to disposition flow";
+    case "DISCARDED":
+      return "Donation request discarded — item kept by customer";
     default:
       return rc.status;
   }

@@ -18,6 +18,7 @@ import type {
   RoutingResultDTO,
 } from "@/types/dto";
 import type { Grade, RoutingPath, DetectedFlaw } from "@/types";
+import { currentUserId } from "@/lib/session";
 
 /**
  * The typed API client — the SINGLE place the frontend talks to the backend.
@@ -111,7 +112,7 @@ export const apiClient = {
   }) =>
     request<ItemDTO>("/api/items", { method: "POST", body: JSON.stringify(input) }),
 
-  cancelReturn: (itemId: string, userId?: string) =>
+  cancelReturn: (itemId: string, userId: string = currentUserId()) =>
     request<{ cancelled: boolean }>("/api/returns/cancel", {
       method: "POST",
       body: JSON.stringify({ itemId, userId }),
@@ -122,16 +123,16 @@ export const apiClient = {
       method: "POST",
     }),
 
-  getRedemptions: (userId?: string) =>
+  getRedemptions: (userId: string = currentUserId()) =>
     request<RedemptionDTO[]>(
-      `/api/credits/redemptions${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
+      `/api/credits/redemptions?userId=${encodeURIComponent(userId)}`,
     ),
 
   // ── Return decision workflow ──
   initiateReturnCase: (itemId: string, reason: string) =>
     request<ReturnCaseDTO>("/api/return-cases", {
       method: "POST",
-      body: JSON.stringify({ itemId, reason }),
+      body: JSON.stringify({ itemId, reason, userId: currentUserId() }),
     }),
   getReturnCase: (id: string) => request<ReturnCaseDTO>(`/api/return-cases/${id}`),
   gradeCase: (id: string, images: GradeImageInput[]) =>
@@ -158,11 +159,14 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify({ force }),
     }),
+  donationDecision: (id: string, action: "donate" | "discard") =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/donation-decision`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }),
 
-  getOrders: (userId?: string) =>
-    request<EligibleOrderDTO[]>(
-      `/api/orders${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
-    ),
+  getOrders: (userId: string = currentUserId()) =>
+    request<EligibleOrderDTO[]>(`/api/orders?userId=${encodeURIComponent(userId)}`),
 
   getRewards: () => request<RewardDTO[]>("/api/rewards"),
 
@@ -177,10 +181,10 @@ export const apiClient = {
   ) =>
     request<CheckoutResultDTO>("/api/checkout", {
       method: "POST",
-      body: JSON.stringify({ lines }),
+      body: JSON.stringify({ lines, userId: currentUserId() }),
     }),
 
-  redeem: (rewardId: string, userId?: string) =>
+  redeem: (rewardId: string, userId: string = currentUserId()) =>
     request<RedeemResultDTO>("/api/credits/redeem", {
       method: "POST",
       body: JSON.stringify({ rewardId, userId }),
@@ -262,10 +266,8 @@ export const apiClient = {
       body: JSON.stringify(input),
     }),
 
-  getCreditTotals: (userId?: string) =>
-    request<CreditTotalsDTO>(
-      `/api/credits${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`,
-    ),
+  getCreditTotals: (userId: string = currentUserId()) =>
+    request<CreditTotalsDTO>(`/api/credits?userId=${encodeURIComponent(userId)}`),
 };
 
 // Re-export for convenience

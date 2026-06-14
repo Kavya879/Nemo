@@ -106,6 +106,10 @@ export function ProductDetail({ id }: { id: string }) {
             )}
           </div>
           <p className="text-sm text-ink">{listing.description}</p>
+          <p className="flex items-center gap-1 text-xs text-storm">
+            <span>🔒</span> Sold by a verified ReLoop seller — seller identity is protected.
+            Condition shown is the AI-verified Product Health Card below.
+          </p>
           <PreventionBanner category={category} />
         </div>
 

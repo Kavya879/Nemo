@@ -19,6 +19,8 @@ const LABELS: Record<ReturnStatusDTO, string> = {
   WINDOW_EXPIRED: "Window Expired",
   LIQUIDATION_PICKUP: "Pickup",
   LIQUIDATED: "Disposition",
+  DONATION_PENDING: "Donation?",
+  DISCARDED: "Discarded",
 };
 
 /** Builds the milestone path actually taken by this case. */
@@ -31,9 +33,19 @@ function milestones(rc: ReturnCaseDTO): ReturnStatusDTO[] {
   } else if (rc.decision === "NOT_FEASIBLE") {
     path.push("SECOND_LIFE_LISTED");
     const liquidation =
-      reached.has("WINDOW_EXPIRED") || reached.has("LIQUIDATION_PICKUP") || reached.has("LIQUIDATED");
+      reached.has("WINDOW_EXPIRED") ||
+      reached.has("LIQUIDATION_PICKUP") ||
+      reached.has("LIQUIDATED") ||
+      reached.has("DONATION_PENDING");
     if (liquidation) {
-      path.push("WINDOW_EXPIRED", "LIQUIDATION_PICKUP", "LIQUIDATED");
+      path.push("WINDOW_EXPIRED");
+      if (reached.has("DONATION_PENDING") || reached.has("DISCARDED")) {
+        path.push("DONATION_PENDING");
+        if (reached.has("DISCARDED")) path.push("DISCARDED");
+        else path.push("LIQUIDATION_PICKUP", "LIQUIDATED");
+      } else {
+        path.push("LIQUIDATION_PICKUP", "LIQUIDATED");
+      }
     } else {
       path.push("BUYER_RESERVED", "SL_PICKUP_SCHEDULED", "DELIVERY_VERIFICATION");
       if (reached.has("TRANSFER_REJECTED")) {

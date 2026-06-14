@@ -44,6 +44,10 @@ export const ExpireWindowSchema = z.object({
   force: z.boolean().optional(),
 });
 
+export const DonationDecisionSchema = z.object({
+  action: z.enum(["donate", "discard"]),
+});
+
 export const CreateItemRequestSchema = z.object({
   name: z.string().min(1),
   category: z.string().min(1),

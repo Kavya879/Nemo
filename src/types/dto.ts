@@ -213,7 +213,9 @@ export type ReturnStatusDTO =
   | "TRANSFER_REJECTED"
   | "WINDOW_EXPIRED"
   | "LIQUIDATION_PICKUP"
-  | "LIQUIDATED";
+  | "LIQUIDATED"
+  | "DONATION_PENDING"
+  | "DISCARDED";
 
 export interface ReturnEventDTO {
   id: string;

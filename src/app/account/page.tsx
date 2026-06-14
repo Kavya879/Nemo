@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { useUser } from "@/lib/user-context";
 import type { CreditTotalsDTO } from "@/types/dto";
 
 const CARDS = [
@@ -45,11 +46,12 @@ const CARDS = [
 ];
 
 export default function AccountPage() {
+  const { user } = useUser();
   const [totals, setTotals] = useState<CreditTotalsDTO | null>(null);
 
   useEffect(() => {
     apiClient.getCreditTotals().then(setTotals).catch(() => setTotals(null));
-  }, []);
+  }, [user.id]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -61,9 +63,13 @@ export default function AccountPage() {
           👤
         </div>
         <div className="flex-1">
-          <div className="text-lg font-bold text-ink">Hello, Demo User</div>
-          <div className="text-sm text-storm">demo@reloop.app · Bengaluru 560001</div>
-          <span className="text-xs text-storm">Login &amp; security · Addresses · Payment methods</span>
+          <div className="text-lg font-bold text-ink">Hello, {user.name}</div>
+          <div className="text-sm text-storm">
+            {user.role === "owner" ? "Owner / seller account" : "Buyer account"} · Bengaluru 560001
+          </div>
+          <Link href="/login" className="text-xs font-medium text-link hover:underline">
+            Switch account
+          </Link>
         </div>
         <div className="rounded bg-cloud px-5 py-3 text-center">
           <div className="text-xs text-storm">ReLoop Credits</div>
