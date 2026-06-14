@@ -92,18 +92,24 @@ export default function OrdersPage() {
                     </button>
                   ) : o.returnEligible ? (
                     <Link
-                      href="/return"
+                      href={`/return?itemId=${it.id}`}
                       className="rounded-full bg-amzYellow px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzYellowDark"
                     >
                       Return item
                     </Link>
                   ) : (
-                    <button
-                      disabled
-                      className="cursor-not-allowed rounded-full bg-mist px-4 py-2 text-sm text-storm"
-                    >
-                      Return window closed
-                    </button>
+                    <>
+                      <span className="rounded-full bg-mist px-4 py-2 text-center text-xs text-storm">
+                        Return window closed
+                      </span>
+                      {/* #18: resale only allowed once the return window is over */}
+                      <Link
+                        href={`/sell?itemId=${it.id}`}
+                        className="rounded-full bg-amzOrange px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzOrangeDark"
+                      >
+                        Resell on ReLoop
+                      </Link>
+                    </>
                   )}
                 </div>
               </div>

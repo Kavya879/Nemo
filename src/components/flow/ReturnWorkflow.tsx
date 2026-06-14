@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient, ApiError } from "@/lib/api-client";
 import type { EligibleOrderDTO, ItemDTO, ReturnCaseDTO } from "@/types/dto";
@@ -44,12 +44,13 @@ const TERMINAL = ["RETURNED_TO_SELLER", "COMPLETED", "TRANSFER_REJECTED", "LIQUI
 
 export function ReturnWorkflow() {
   const router = useRouter();
+  const search = useSearchParams();
 
   // selection
   const [orders, setOrders] = useState<EligibleOrderDTO[]>([]);
   const [selected, setSelected] = useState<ItemDTO | null>(null);
   const [reason, setReason] = useState(REASONS[0]);
-  const [photos, setPhotos] = useState<Img[]>([]);
+  const [photo, setPhoto] = useState<Img | null>(null);
 
   // case
   const [rc, setRc] = useState<ReturnCaseDTO | null>(null);
@@ -64,13 +65,20 @@ export function ReturnWorkflow() {
     apiClient.getOrders().then(setOrders).catch(() => undefined);
   }, []);
 
+  // Deep-link from "Your Orders": ?itemId=… pre-selects that item (skip the grid).
+  useEffect(() => {
+    const itemId = search.get("itemId");
+    if (!itemId || selected || orders.length === 0) return;
+    const match = orders.find((o) => o.order.item.id === itemId && o.returnEligible);
+    if (match) setSelected(match.order.item);
+  }, [orders, search, selected]);
+
   const describe = (e: unknown) =>
     e instanceof ApiError ? `${e.message}` : e instanceof Error ? e.message : "Something went wrong";
 
-  async function onPickFiles(files: FileList | null) {
-    if (!files) return;
-    const imgs = await Promise.all(Array.from(files).slice(0, 3).map(fileToImage));
-    setPhotos(imgs);
+  async function onPickFile(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setPhoto(await fileToImage(files[0]));
   }
 
   // Step 1: initiate → grade → analyze (the AI grading runs first, then feasibility)
@@ -83,9 +91,9 @@ export function ReturnWorkflow() {
       const created = await apiClient.initiateReturnCase(selected.id, reason);
       setRc(created);
 
-      setBusyLabel("Running AI grading on your photos…");
-      const images = photos.length
-        ? photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType }))
+      setBusyLabel("Running AI grading on your photo…");
+      const images = photo
+        ? [{ base64: photo.base64, mimeType: photo.mimeType }]
         : [{ base64: TINY_PNG, mimeType: "image/png" as const }];
       const graded = await apiClient.gradeCase(created.id, images);
       setRc(graded);
@@ -201,14 +209,38 @@ export function ReturnWorkflow() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold">Photos (for AI grading)</label>
-                <input type="file" accept="image/*" multiple onChange={(e) => onPickFiles(e.target.files)} className="block w-full text-sm" />
-                {photos.length > 0 && (
-                  <div className="mt-2 flex gap-2">
-                    {photos.map((p, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={i} src={p.preview} alt={`photo ${i + 1}`} className="h-16 w-16 rounded border border-line object-cover" />
-                    ))}
+                <label className="mb-1 block text-sm font-semibold">Photo (for AI grading)</label>
+                {!photo ? (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => onPickFile(e.target.files)}
+                    className="block w-full text-sm"
+                  />
+                ) : (
+                  <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.preview}
+                      alt="return photo"
+                      className="h-24 w-24 rounded border border-line object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPhoto(null)}
+                      aria-label="Discard photo"
+                      title="Discard and choose another"
+                      className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-danger text-sm font-bold text-white shadow hover:opacity-90"
+                    >
+                      ×
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhoto(null)}
+                      className="mt-1 block text-xs font-medium text-link hover:underline"
+                    >
+                      Discard &amp; choose another
+                    </button>
                   </div>
                 )}
               </div>

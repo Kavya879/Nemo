@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import type { CreditsResultDTO, ListingDTO } from "@/types/dto";
+import { useCart, type CartLine } from "@/lib/cart";
+import type { ListingDTO } from "@/types/dto";
 import { ProductHealthCard } from "@/components/ProductHealthCard";
 import { PreventionBanner } from "@/components/PreventionBanner";
-import { CreditsReward } from "@/components/CreditsReward";
 import { GradeBadge } from "@/components/GradeBadge";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 
@@ -15,11 +16,11 @@ function categoryIcon(cat?: string) {
 }
 
 export function ProductDetail({ id }: { id: string }) {
+  const router = useRouter();
+  const { add } = useCart();
   const [listing, setListing] = useState<ListingDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [buying, setBuying] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [reward, setReward] = useState<CreditsResultDTO | null>(null);
 
   function load() {
     setError(null);
@@ -31,30 +32,28 @@ export function ProductDetail({ id }: { id: string }) {
   }
   useEffect(load, [id]);
 
-  /** Add to cart — NO credits are awarded here (only on purchase). */
-  function addToCart() {
-    setAddedToCart(true);
-    setTimeout(() => setAddedToCart(false), 3000);
+  function toCartLine(l: ListingDTO): Omit<CartLine, "qty"> {
+    return {
+      listingId: l.id,
+      itemId: l.itemId,
+      title: l.title,
+      price: l.price,
+      category: l.item?.category ?? "general",
+      originalPrice: l.item?.originalPrice ?? l.price,
+    };
   }
 
-  /** Complete the purchase — credits are awarded ONLY here, after a real buy. */
-  async function purchase() {
-    if (!listing?.item) return;
-    setBuying(true);
-    setError(null);
-    try {
-      const result = await apiClient.awardCredits({
-        action: "RESELL_AS_IS",
-        category: listing.item.category,
-        originalPrice: listing.item.originalPrice,
-        itemId: listing.itemId,
-      });
-      setReward(result);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not complete the purchase");
-    } finally {
-      setBuying(false);
-    }
+  function addToCart() {
+    if (!listing) return;
+    add(toCartLine(listing));
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2500);
+  }
+
+  function buyNow() {
+    if (!listing) return;
+    add(toCartLine(listing));
+    router.push("/checkout");
   }
 
   if (error) return <div className="mx-auto max-w-6xl p-4"><ErrorState message={error} onRetry={load} /></div>;
@@ -67,7 +66,6 @@ export function ProductDetail({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-3">
-      {/* Breadcrumb */}
       <nav className="mb-3 text-xs text-link">
         <Link href="/marketplace" className="hover:text-linkHover hover:underline">Second-Life</Link>
         <span className="mx-1 text-storm">›</span>
@@ -92,9 +90,7 @@ export function ProductDetail({ id }: { id: string }) {
             <span className="text-link">{rating.toFixed(1)}</span>
             <span className="text-storm">· ReLoop verified</span>
           </div>
-          <div className="flex items-center gap-2">
-            <GradeBadge grade={listing.healthCard.verifiedCondition} showLabel />
-          </div>
+          <GradeBadge grade={listing.healthCard.verifiedCondition} showLabel />
           <hr className="border-line" />
           <div>
             <span className="text-sm text-storm">Price: </span>
@@ -110,7 +106,6 @@ export function ProductDetail({ id }: { id: string }) {
             )}
           </div>
           <p className="text-sm text-ink">{listing.description}</p>
-
           <PreventionBanner category={category} />
         </div>
 
@@ -131,15 +126,17 @@ export function ProductDetail({ id }: { id: string }) {
             </button>
             {addedToCart && (
               <p className="rounded bg-success/10 py-1 text-center text-xs font-medium text-success">
-                ✓ Added to cart (no credits — you earn credits when you buy)
+                ✓ Added to cart ·{" "}
+                <Link href="/cart" className="underline">
+                  View cart
+                </Link>
               </p>
             )}
             <button
-              onClick={purchase}
-              disabled={buying}
-              className="w-full rounded-full bg-amzOrange py-2 text-sm font-medium text-ink hover:bg-amzOrangeDark disabled:opacity-50"
+              onClick={buyNow}
+              className="w-full rounded-full bg-amzOrange py-2 text-sm font-medium text-ink hover:bg-amzOrangeDark"
             >
-              {buying ? "Completing purchase…" : "Buy Now"}
+              Buy Now
             </button>
             <p className="text-center text-xs text-storm">
               Earn ReLoop Credits 🌱 <span className="font-medium">after purchase</span>
@@ -148,14 +145,9 @@ export function ProductDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {error && <div className="mt-4"><ErrorState message={error} onRetry={purchase} /></div>}
-
-      {/* Trust layer */}
       <div className="mt-6 max-w-2xl">
         <ProductHealthCard card={listing.healthCard} />
       </div>
-
-      {reward && <CreditsReward result={reward} onClose={() => setReward(null)} />}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useCart } from "@/lib/cart";
 
 /**
  * Amazon-style global header: logo, deliver-to, full search bar with category
@@ -21,6 +22,7 @@ const DEPARTMENTS = [
 export function Navbar() {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const { count } = useCart();
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -99,10 +101,17 @@ export function Navbar() {
 
         {/* Cart */}
         <Link
-          href="/marketplace"
-          className="flex items-end gap-1 rounded border border-transparent px-2 py-1 hover:border-white"
+          href="/cart"
+          className="relative flex items-end gap-1 rounded border border-transparent px-2 py-1 hover:border-white"
         >
-          <span className="text-2xl">🛒</span>
+          <span className="relative text-2xl">
+            🛒
+            {count > 0 && (
+              <span className="absolute -right-1.5 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-ember px-1 text-xs font-bold text-squid">
+                {count}
+              </span>
+            )}
+          </span>
           <span className="hidden text-sm font-bold sm:inline">Cart</span>
         </Link>
       </div>

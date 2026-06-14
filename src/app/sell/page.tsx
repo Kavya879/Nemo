@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import type { Grade } from "@/types";
 import type { ListingDTO } from "@/types/dto";
 import { Button } from "@/components/ui/Button";
 import { GradeBadge } from "@/components/GradeBadge";
+import { LoadingState } from "@/components/flow/States";
 
 const CATEGORIES = ["Footwear", "Electronics", "Apparel", "Home", "Books", "Other"];
 const GRADES: Grade[] = ["A", "B", "C", "D"];
 
-export default function SellPage() {
+function SellInner() {
+  const search = useSearchParams();
+  const resellItemId = search.get("itemId");
+
   const [name, setName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [brand, setBrand] = useState("");
@@ -19,13 +24,50 @@ export default function SellPage() {
   const [askingPrice, setAskingPrice] = useState("");
   const [grade, setGrade] = useState<Grade>("B");
 
+  const [prefilling, setPrefilling] = useState<boolean>(!!resellItemId);
+  const [locked, setLocked] = useState(false); // fields locked when reselling an owned item
+  const [blockedReason, setBlockedReason] = useState<string | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<ListingDTO | null>(null);
 
+  // Resell flow: prefill from the owned item + enforce "only after return window closes".
+  useEffect(() => {
+    if (!resellItemId) return;
+    (async () => {
+      try {
+        const [items, orders] = await Promise.all([apiClient.getItems(), apiClient.getOrders()]);
+        const item = items.find((i) => i.id === resellItemId);
+        if (!item) {
+          setBlockedReason("That item could not be found.");
+          return;
+        }
+        setName(item.name);
+        setCategory(item.category);
+        setBrand(item.brand ?? "");
+        setOriginalPrice(String(item.originalPrice));
+        if (item.currentGrade) setGrade(item.currentGrade);
+        setLocked(true);
+
+        // #18: cannot resell while the order is still within its return window.
+        const order = orders.find((o) => o.order.item.id === resellItemId);
+        if (order && order.returnEligible) {
+          setBlockedReason(
+            `This item is still within its return window (${order.returnDaysLeft} day(s) left). You can resell it only after the return period is over — return it for a refund instead, or wait for the window to close.`,
+          );
+        }
+      } catch {
+        setBlockedReason("Could not load the item for resale.");
+      } finally {
+        setPrefilling(false);
+      }
+    })();
+  }, [resellItemId]);
+
   const mrp = Number(originalPrice) || 0;
   const ask = Number(askingPrice) || 0;
-  const valid = name.trim() && mrp > 0 && ask > 0 && ask <= mrp;
+  const valid = !blockedReason && name.trim() && mrp > 0 && ask > 0 && ask <= mrp;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,22 +75,26 @@ export default function SellPage() {
     setSubmitting(true);
     setError(null);
     try {
-      // 1) Create the seller's item (may be a product not already on the platform).
-      const item = await apiClient.createItem({
-        name: name.trim(),
-        category,
-        brand: brand.trim() || undefined,
-        originalPrice: mrp,
-      });
-      // 2) List it for second-life resale.
+      // Reselling an owned item → list the existing item; otherwise create a new one.
+      const itemId = resellItemId
+        ? resellItemId
+        : (
+            await apiClient.createItem({
+              name: name.trim(),
+              category,
+              brand: brand.trim() || undefined,
+              originalPrice: mrp,
+            })
+          ).id;
+
       const listing = await apiClient.createListing({
-        itemId: item.id,
+        itemId,
         grade,
         confidence: 0.85,
         flaws: [],
         price: ask,
         pricePct: Number((ask / mrp).toFixed(3)),
-        history: ["Listed by seller on ReLoop"],
+        history: [resellItemId ? "Resold by owner (return window closed)" : "Listed by seller on ReLoop"],
       });
       setCreated(listing);
     } catch (err) {
@@ -58,24 +104,22 @@ export default function SellPage() {
     }
   }
 
+  if (prefilling) return <div className="p-8"><LoadingState label="Loading item…" /></div>;
+
   if (created) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 text-center">
-        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-3xl">
-          ✅
-        </div>
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-3xl">✅</div>
         <h1 className="text-2xl font-bold">Your item is live!</h1>
         <p className="mt-1 text-sm text-storm">{created.title}</p>
-        <p className="mt-1 text-2xl font-bold text-priceRed">
-          ₹{created.price.toLocaleString("en-IN")}
-        </p>
+        <p className="mt-1 text-2xl font-bold text-priceRed">₹{created.price.toLocaleString("en-IN")}</p>
         <div className="mt-5 flex justify-center gap-3">
           <Link href={`/marketplace/${created.id}`}>
             <Button size="lg">View your listing →</Button>
           </Link>
-          <Button size="lg" variant="secondary" onClick={() => setCreated(null)}>
-            List another item
-          </Button>
+          <Link href="/sell">
+            <Button size="lg" variant="secondary">List another item</Button>
+          </Link>
         </div>
       </div>
     );
@@ -83,11 +127,21 @@ export default function SellPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="text-2xl font-bold">Sell on ReLoop</h1>
+      <h1 className="text-2xl font-bold">{resellItemId ? "Resell on ReLoop" : "Sell on ReLoop"}</h1>
       <p className="text-sm text-storm">
-        List your own item for second-life resale — including products not already on the
-        platform. It appears in the marketplace with a Product Health Card.
+        {resellItemId
+          ? "List an item you own (its return window has closed) for second-life resale."
+          : "List your own item for second-life resale — including products not already on the platform."}
       </p>
+
+      {blockedReason && (
+        <div className="mt-4 rounded border border-warn/40 bg-warn/10 p-4 text-sm text-warn">
+          {blockedReason}{" "}
+          <Link href="/orders" className="font-medium underline">
+            Back to Your Orders
+          </Link>
+        </div>
+      )}
 
       <form onSubmit={submit} className="mt-5 space-y-4 rounded border border-line bg-white p-5">
         <div>
@@ -95,8 +149,9 @@ export default function SellPage() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={locked}
             placeholder="e.g. Vintage Leather Satchel"
-            className="w-full rounded border border-line px-3 py-2 text-sm"
+            className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-mist/50"
           />
         </div>
 
@@ -106,7 +161,8 @@ export default function SellPage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
+              disabled={locked}
+              className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-mist/50"
             >
               {CATEGORIES.map((c) => (
                 <option key={c}>{c}</option>
@@ -118,8 +174,8 @@ export default function SellPage() {
             <input
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
-              placeholder="e.g. Acme"
-              className="w-full rounded border border-line px-3 py-2 text-sm"
+              disabled={locked}
+              className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-mist/50"
             />
           </div>
         </div>
@@ -132,7 +188,8 @@ export default function SellPage() {
               min="1"
               value={originalPrice}
               onChange={(e) => setOriginalPrice(e.target.value)}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
+              disabled={locked}
+              className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-mist/50"
             />
           </div>
           <div>
@@ -151,16 +208,14 @@ export default function SellPage() {
         )}
 
         <div>
-          <label className="mb-1 block text-sm font-semibold">Condition (self-declared)</label>
+          <label className="mb-1 block text-sm font-semibold">Condition</label>
           <div className="flex gap-2">
             {GRADES.map((g) => (
               <button
                 type="button"
                 key={g}
                 onClick={() => setGrade(g)}
-                className={`rounded border px-3 py-2 ${
-                  grade === g ? "border-ember ring-2 ring-zest" : "border-line"
-                }`}
+                className={`rounded border px-3 py-2 ${grade === g ? "border-ember ring-2 ring-zest" : "border-line"}`}
               >
                 <GradeBadge grade={g} size="sm" />
               </button>
@@ -175,5 +230,13 @@ export default function SellPage() {
         </Button>
       </form>
     </div>
+  );
+}
+
+export default function SellPage() {
+  return (
+    <Suspense fallback={<div className="p-8"><LoadingState label="Loading…" /></div>}>
+      <SellInner />
+    </Suspense>
   );
 }

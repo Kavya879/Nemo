@@ -168,6 +168,15 @@ export interface ReturnDTO {
   createdAt: string;
 }
 
+export interface CheckoutResultDTO {
+  orderRef: string;
+  itemCount: number;
+  creditsEarned: number;
+  co2SavedKg: number;
+  costSaved: number;
+  totals: CreditTotalsDTO;
+}
+
 // ── Return workflow ──
 export interface FeasibilityDTO {
   originalValue: number;

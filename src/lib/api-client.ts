@@ -1,5 +1,6 @@
 import type {
   BuyerMatchDTO,
+  CheckoutResultDTO,
   CreditTotalsDTO,
   CreditsResultDTO,
   EligibleOrderDTO,
@@ -159,6 +160,20 @@ export const apiClient = {
     ),
 
   getRewards: () => request<RewardDTO[]>("/api/rewards"),
+
+  checkout: (
+    lines: Array<{
+      listingId: string;
+      itemId: string;
+      category: string;
+      originalPrice: number;
+      qty: number;
+    }>,
+  ) =>
+    request<CheckoutResultDTO>("/api/checkout", {
+      method: "POST",
+      body: JSON.stringify({ lines }),
+    }),
 
   redeem: (rewardId: string, userId?: string) =>
     request<RedeemResultDTO>("/api/credits/redeem", {

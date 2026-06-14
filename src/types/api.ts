@@ -8,6 +8,22 @@ import { RoutingContextSchema } from "@/services/routing/types";
  * frontend client can mirror them.
  */
 
+export const CheckoutRequestSchema = z.object({
+  userId: z.string().optional(),
+  lines: z
+    .array(
+      z.object({
+        listingId: z.string().min(1),
+        itemId: z.string().min(1),
+        category: z.string().min(1),
+        originalPrice: z.number().nonnegative(),
+        qty: z.number().int().positive(),
+      }),
+    )
+    .min(1),
+});
+export type CheckoutRequest = z.infer<typeof CheckoutRequestSchema>;
+
 // ── Return workflow ──
 export const InitiateReturnCaseSchema = z.object({
   itemId: z.string().min(1),
