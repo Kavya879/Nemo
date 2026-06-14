@@ -97,6 +97,26 @@ export interface ItemDTO {
   repairability: number;
 }
 
+export type StockStatusDTO = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
+
+/** A brand-new catalog product (standard inventory ecosystem). */
+export interface ProductDTO {
+  id: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  description: string;
+  price: number;
+  imageUrl: string | null;
+  stock: number;
+  soldCount: number;
+  active: boolean;
+  createdAt: string;
+  /** Derived availability (from real stock — single source of truth). */
+  stockStatus: StockStatusDTO;
+  stockLabel: string;
+}
+
 export interface BuyerMatchDTO {
   buyerId: string;
   name: string;
@@ -224,14 +244,14 @@ export interface PassportMetricDTO {
 
 export interface ProductPassportDTO {
   itemId: string;
-  qualityScore: PassportMetricDTO;
-  durabilityPrediction: PassportMetricDTO;
-  returnRate: PassportMetricDTO;
-  sellerReliability: PassportMetricDTO;
-  sustainabilityScore: PassportMetricDTO;
-  customerSatisfaction: PassportMetricDTO;
-  authenticityConfidence: PassportMetricDTO;
-  resaleValue: { amount: number; pct: number; confidence: number; label: string };
+  qualityScore: PassportMetricDTO | null;
+  durabilityPrediction: PassportMetricDTO | null;
+  returnRate: PassportMetricDTO | null;
+  sellerReliability: PassportMetricDTO | null;
+  sustainabilityScore: PassportMetricDTO | null;
+  customerSatisfaction: PassportMetricDTO | null;
+  authenticityConfidence: PassportMetricDTO | null;
+  resaleValue: { amount: number; pct: number; confidence: number; label: string } | null;
 }
 
 export interface ReviewDTO {
@@ -272,8 +292,8 @@ export interface CohortInsightDTO {
 export interface OwnershipInsightsDTO {
   predictedLifespanMonths: number;
   costPerYear: number;
-  regretProbability: number;
-  regretLevel: "low" | "medium" | "high";
+  regretProbability: number | null;
+  regretLevel: "low" | "medium" | "high" | null;
 }
 
 export interface CompatibilityCheckDTO {
@@ -301,7 +321,7 @@ export interface ProductIntelligenceDTO {
   itemId: string;
   returnRisk: ReturnRiskDTO;
   passport: ProductPassportDTO;
-  twin: DigitalTwinDTO;
+  twin: DigitalTwinDTO | null;
   cohort: CohortInsightDTO;
   ownership: OwnershipInsightsDTO;
   compatibility: CompatibilityResultDTO;

@@ -122,7 +122,6 @@ export const ProductHealthCardSchema = z.object({
   confidence: z.number().min(0).max(1),
   flaws: z.array(DetectedFlawSchema),
   history: z.array(z.string()),
-  warranty: z.string(),
 });
 export type ProductHealthCard = z.infer<typeof ProductHealthCardSchema>;
 

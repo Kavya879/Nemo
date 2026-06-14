@@ -21,6 +21,7 @@ import type {
   GradeWithVerificationDTO,
   ItemDTO,
   ListingDTO,
+  ProductDTO,
   MatchResultDTO,
   PreventionResultDTO,
   PriceResultDTO,
@@ -168,6 +169,7 @@ export const apiClient = {
     brand?: string;
     originalPrice: number;
     repairability?: number;
+    imageUrl?: string;
   }) =>
     request<ItemDTO>("/api/items", { method: "POST", body: JSON.stringify(input) }),
 
@@ -316,8 +318,10 @@ export const apiClient = {
 
   checkout: (
     lines: Array<{
-      listingId: string;
-      itemId: string;
+      kind: "NEW" | "RESOLD";
+      listingId?: string;
+      itemId?: string;
+      productId?: string;
       category: string;
       originalPrice: number;
       qty: number;
@@ -381,6 +385,11 @@ export const apiClient = {
   getListings: () => request<ListingDTO[]>("/api/listings"),
 
   getListing: (id: string) => request<ListingDTO>(`/api/listings/${id}`),
+
+  // ── Brand-new catalog (standard inventory ecosystem) ──
+  getProducts: () => request<ProductDTO[]>("/api/products"),
+
+  getProduct: (id: string) => request<ProductDTO>(`/api/products/${id}`),
 
   match: (category: string, lat: number, lng: number, radiusKm?: number) => {
     const q = new URLSearchParams({

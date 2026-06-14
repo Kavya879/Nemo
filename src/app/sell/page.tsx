@@ -84,6 +84,11 @@ function SellInner() {
     setSubmitting(true);
     setError(null);
     try {
+      // The actual uploaded photo (front preferred) becomes the product image —
+      // so the listing shows the real image the seller uploaded, not a stand-in.
+      const primaryPhoto = photos.find((p) => p.role === "front") ?? photos[0];
+      const uploadedImageUrl = primaryPhoto?.preview;
+
       // Reselling an owned item → list the existing item; otherwise create a new one.
       setBusyLabel("Preparing item…");
       const itemId = resellItemId
@@ -94,6 +99,7 @@ function SellInner() {
               category,
               brand: brand.trim() || undefined,
               originalPrice: mrp,
+              imageUrl: uploadedImageUrl,
             })
           ).id;
 
@@ -115,6 +121,7 @@ function SellInner() {
         flaws: graded.flaws,
         price: ask,
         pricePct: Number((ask / mrp).toFixed(3)),
+        photoUrl: uploadedImageUrl ?? null,
         history: [
           resellItemId ? "Resold by owner (return window closed)" : "Listed by seller on Amazon Nemo",
           `AI-graded ${graded.grade} (${Math.round(graded.confidence * 100)}% confidence)`,

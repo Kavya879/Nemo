@@ -67,7 +67,7 @@ describe("phase 4 — priced → listed → matched chain", () => {
     expect(draft.title).toContain("Grade A");
     expect(draft.description.length).toBeGreaterThan(10);
     expect(draft.healthCard.verifiedCondition).toBe("A");
-    expect(draft.healthCard.warranty).toBeTruthy();
+    expect(draft.healthCard.confidence).toBe(0.94);
     expect(draft.healthCard.history.length).toBeGreaterThan(0);
   });
 

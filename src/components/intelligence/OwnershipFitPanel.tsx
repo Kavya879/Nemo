@@ -16,7 +16,7 @@ const statusMeta: Record<
   unknown: { icon: "?", cls: "text-storm" },
 };
 
-const regretTone: Record<OwnershipInsightsDTO["regretLevel"], string> = {
+const regretTone: Record<"low" | "medium" | "high", string> = {
   low: "text-success",
   medium: "text-warn",
   high: "text-danger",
@@ -49,10 +49,19 @@ export function OwnershipFitPanel({
           <div className="text-[10px] text-storm">Cost / year</div>
         </div>
         <div className="rounded-md border border-line p-2">
-          <div className={`text-lg font-bold ${regretTone[ownership.regretLevel]}`}>
-            {ownership.regretProbability}%
-          </div>
-          <div className="text-[10px] text-storm">Regret risk</div>
+          {ownership.regretProbability === null || ownership.regretLevel === null ? (
+            <>
+              <div className="text-lg font-bold text-line">—</div>
+              <div className="text-[10px] text-storm">Regret risk · no data</div>
+            </>
+          ) : (
+            <>
+              <div className={`text-lg font-bold ${regretTone[ownership.regretLevel]}`}>
+                {ownership.regretProbability}%
+              </div>
+              <div className="text-[10px] text-storm">Regret risk</div>
+            </>
+          )}
         </div>
       </div>
 

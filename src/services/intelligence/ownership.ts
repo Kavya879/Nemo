@@ -10,8 +10,9 @@ import { clamp01 } from "./types";
 export interface OwnershipInsights {
   predictedLifespanMonths: number;
   costPerYear: number;
-  regretProbability: number; // 0..100
-  regretLevel: "low" | "medium" | "high";
+  /** Null when there's no real risk/satisfaction evidence to base regret on. */
+  regretProbability: number | null; // 0..100
+  regretLevel: "low" | "medium" | "high" | null;
 }
 
 // Category lifespan baselines (months) when an item carries no explicit spec.
@@ -36,6 +37,8 @@ export function buildOwnershipInsights(input: {
   returnProbability: number;
   /** Expectation-mismatch 0..1. */
   mismatch: number;
+  /** Whether there's real evidence to ground a regret estimate. */
+  hasRiskEvidence: boolean;
 }): OwnershipInsights {
   const baseline = LIFESPAN_BASELINE[input.category] ?? 30;
   const specLifespan =
@@ -55,15 +58,18 @@ export function buildOwnershipInsights(input: {
   const years = predictedLifespanMonths / 12;
   const costPerYear = Math.round(input.price / Math.max(years, 0.25) + input.price * maintenancePct);
 
-  const regret = clamp01(
-    0.45 * input.returnProbability + 0.35 * (1 - input.satisfaction) + 0.2 * input.mismatch,
-  );
-  const regretLevel = regret >= 0.6 ? "high" : regret >= 0.35 ? "medium" : "low";
+  // Regret needs real risk/satisfaction evidence — otherwise we leave it empty
+  // rather than inventing a number.
+  const regret = input.hasRiskEvidence
+    ? clamp01(0.45 * input.returnProbability + 0.35 * (1 - input.satisfaction) + 0.2 * input.mismatch)
+    : null;
+  const regretLevel =
+    regret === null ? null : regret >= 0.6 ? "high" : regret >= 0.35 ? "medium" : "low";
 
   return {
     predictedLifespanMonths,
     costPerYear,
-    regretProbability: Math.round(regret * 100),
+    regretProbability: regret === null ? null : Math.round(regret * 100),
     regretLevel,
   };
 }

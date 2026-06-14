@@ -31,6 +31,25 @@ export const ROUTING_PATHS = [
 /** The fixed set of condition grades. */
 export const GRADES = ["A", "B", "C", "D"] as const;
 
+/**
+ * Canonical selling categories always offered in the Sell flow and filters,
+ * regardless of what the live catalog currently contains. "Others" is always
+ * available as a catch-all so sellers are never blocked by a missing category.
+ */
+export const CANONICAL_CATEGORIES = [
+  "Electronics",
+  "Apparel",
+  "Footwear",
+  "Home",
+  "Kitchenware",
+  "Books",
+  "Toys",
+  "Furniture",
+  "Beauty",
+  "Sports",
+  "Others",
+] as const;
+
 /** Standard API response envelope version. */
 export const API_VERSION = "1.0";
 

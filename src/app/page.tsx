@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
-import type { ListingDTO } from "@/types/dto";
+import type { ListingDTO, ProductDTO } from "@/types/dto";
 import { ProductImage } from "@/components/ProductImage";
+import { ProductCard } from "@/components/ProductCard";
+import { ListingCard } from "@/components/ListingCard";
 import { useCategories } from "@/lib/use-categories";
 import { categoryIcon } from "@/lib/category-icon";
 
 export default function HomePage() {
   const [listings, setListings] = useState<ListingDTO[]>([]);
+  const [products, setProducts] = useState<ProductDTO[]>([]);
   const { categories } = useCategories();
   useEffect(() => {
     apiClient.getListings().then(setListings).catch(() => setListings([]));
+    apiClient.getProducts().then(setProducts).catch(() => setProducts([]));
   }, []);
 
   const deals = listings.slice(0, 4);
@@ -148,36 +152,51 @@ export default function HomePage() {
         </article>
       </section>
 
-      {/* More second-life finds */}
-      {listings.length > 0 && (
-        <section className="mt-4 rounded-card border border-line bg-white p-4 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink">More second-life finds</h2>
+      {/* Section 1 — Explore Brand New Products (standard inventory) */}
+      {products.length > 0 && (
+        <section className="mt-6">
+          <div className="mb-3 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-ink">Explore Brand New Products</h2>
+              <p className="text-sm text-storm">
+                Standard Amazon-style inventory · multiple quantities · ships fast.
+              </p>
+            </div>
             <Link
               href="/marketplace"
-              className="text-sm font-medium text-link hover:text-linkHover hover:underline"
+              className="shrink-0 text-sm font-medium text-link hover:text-linkHover hover:underline"
             >
-              See more
+              See all
             </Link>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {listings.map((l) => (
-              <Link
-                key={l.id}
-                href={`/marketplace/${l.id}`}
-                className="w-40 shrink-0 rounded border border-line p-3 hover:shadow-cardHover"
-              >
-                <ProductImage
-                  src={l.item?.imageUrl}
-                  category={l.item?.category}
-                  alt={l.title}
-                  className="h-24 w-full rounded"
-                />
-                <div className="mt-2 line-clamp-2 text-xs text-ink">{l.title}</div>
-                <div className="mt-1 font-bold text-priceRed">
-                  ₹{l.price.toLocaleString("en-IN")}
-                </div>
-              </Link>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {products.slice(0, 8).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Section 2 — Explore Resold Products (AI-verified second life) */}
+      {listings.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-ink">Explore Resold Products</h2>
+              <p className="text-sm text-storm">
+                AI-verified second-life finds · one-of-a-kind · a greener choice.
+              </p>
+            </div>
+            <Link
+              href="/marketplace"
+              className="shrink-0 text-sm font-medium text-link hover:text-linkHover hover:underline"
+            >
+              See all
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {listings.slice(0, 8).map((l) => (
+              <ListingCard key={l.id} listing={l} />
             ))}
           </div>
         </section>

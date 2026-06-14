@@ -12,6 +12,7 @@ describe("ownership insights", () => {
       satisfaction: 0.9,
       returnProbability: 0.1,
       mismatch: 0.1,
+      hasRiskEvidence: true,
     });
     expect(o.predictedLifespanMonths).toBeGreaterThan(48); // durability extends life
     expect(o.regretLevel).toBe("low");
@@ -27,6 +28,7 @@ describe("ownership insights", () => {
       satisfaction: 0.2,
       returnProbability: 0.8,
       mismatch: 0.7,
+      hasRiskEvidence: true,
     });
     expect(o.regretLevel).toBe("high");
     expect(o.regretProbability).toBeGreaterThan(60);
@@ -41,6 +43,7 @@ describe("ownership insights", () => {
       satisfaction: 0.6,
       returnProbability: 0.3,
       mismatch: 0.2,
+      hasRiskEvidence: true,
     });
     expect(o.predictedLifespanMonths).toBeGreaterThan(0);
   });

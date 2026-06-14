@@ -72,7 +72,6 @@ export function ListingReview() {
                   </Badge>
                 ))
               )}
-              <Badge tone="neutral">{l.healthCard.warranty}</Badge>
             </div>
             <div className="mt-3 flex gap-2">
               <Button size="sm" disabled={busy === l.id} onClick={() => act(l.id, "ACTIVE")}>

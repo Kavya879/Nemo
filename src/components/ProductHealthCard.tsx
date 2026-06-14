@@ -10,8 +10,9 @@ const SEVERITY_TONE = {
 } as const;
 
 /**
- * The trust layer, on display. Shows verified condition, confidence, flaws,
- * provenance history, and warranty — so a buyer can feel safe.
+ * The trust layer, on display. Shows ONLY AI-verified facts: condition grade,
+ * the grader's confidence (the exact persisted value), detected flaws, and the
+ * provenance history. No warranty or marketing copy — just what was measured.
  */
 export function ProductHealthCard({ card }: { card: HealthCard }) {
   return (
@@ -58,11 +59,6 @@ export function ProductHealthCard({ card }: { card: HealthCard }) {
               </li>
             ))}
           </ol>
-        </div>
-
-        <div className="flex items-center gap-2 rounded-lg bg-cloud px-3 py-2">
-          <span className="text-sm font-medium text-ink">Warranty:</span>
-          <span className="text-sm text-storm">{card.warranty}</span>
         </div>
       </CardBody>
     </Card>

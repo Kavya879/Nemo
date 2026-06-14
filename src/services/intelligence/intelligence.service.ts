@@ -43,7 +43,7 @@ export interface ProductIntelligence {
   itemId: string;
   returnRisk: ReturnRiskResult;
   passport: ProductPassport;
-  twin: DigitalTwin;
+  twin: DigitalTwin | null;
   cohort: CohortInsight;
   ownership: OwnershipInsights;
   compatibility: CompatibilityResult;
@@ -93,17 +93,29 @@ export function createIntelligenceService() {
         },
       };
 
-      const twin = buildDigitalTwin({ risk: returnRisk, passport, cohort, mismatch });
+      // The Digital Twin is a per-shopper simulation — only show it when there's
+      // real evidence behind the ensemble. With no signals at all we'd be
+      // displaying a prior dressed up as a prediction, so we return null and the
+      // UI shows an empty state.
+      const hasRiskEvidence = returnRisk.confidence > 0;
+      const twin = hasRiskEvidence
+        ? buildDigitalTwin({ risk: returnRisk, passport, cohort, mismatch })
+        : null;
 
       const specs = (item.specs as Record<string, unknown>) ?? {};
       const ownership = buildOwnershipInsights({
-        price: passport.resaleValue.amount || item.originalPrice,
+        price: passport.resaleValue?.amount || item.originalPrice,
         category: item.category,
         specs,
-        durability: passport.durabilityPrediction.score / 100,
-        satisfaction: passport.customerSatisfaction.score / 100,
-        returnProbability: twin.returnProbability / 100,
+        durability: passport.durabilityPrediction
+          ? passport.durabilityPrediction.score / 100
+          : item.repairability,
+        satisfaction: passport.customerSatisfaction
+          ? passport.customerSatisfaction.score / 100
+          : 1 - returnRisk.score / 100,
+        returnProbability: returnRisk.score / 100,
         mismatch: mismatch.value,
+        hasRiskEvidence,
       });
 
       const compatibility = checkCompatibility({

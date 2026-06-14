@@ -19,10 +19,20 @@ function Tile({
   invert = false,
 }: {
   title: string;
-  metric: PassportMetricDTO;
+  metric: PassportMetricDTO | null;
   suffix?: string;
   invert?: boolean;
 }) {
+  // No real data → explicit empty state, never an invented number.
+  if (!metric) {
+    return (
+      <div className="rounded-md border border-dashed border-line bg-white/60 p-3">
+        <div className="text-lg font-bold text-line">—</div>
+        <div className="text-[11px] font-medium text-ink">{title}</div>
+        <div className="mt-0.5 text-[10px] leading-tight text-storm">Not enough data yet</div>
+      </div>
+    );
+  }
   return (
     <div className="rounded-md border border-line bg-white p-3">
       <div className={`text-lg font-bold ${tone(metric.score, invert)}`}>
@@ -39,11 +49,26 @@ function Tile({
 }
 
 export function ProductPassportPanel({ passport }: { passport: ProductPassportDTO }) {
+  // Tiles we have real data for (resale value counts as data when present).
+  const realCount =
+    [
+      passport.qualityScore,
+      passport.durabilityPrediction,
+      passport.returnRate,
+      passport.sellerReliability,
+      passport.sustainabilityScore,
+      passport.customerSatisfaction,
+      passport.authenticityConfidence,
+    ].filter(Boolean).length + (passport.resaleValue ? 1 : 0);
+
+  // Nothing verified yet — don't render an all-empty grid.
+  if (realCount === 0) return null;
+
   return (
     <div className="rounded-card border border-line bg-cloud p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink">AI Product Passport</h3>
-        <span className="text-[11px] text-storm">Dynamically generated</span>
+        <span className="text-[11px] text-storm">From verified data only</span>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Tile title="Quality" metric={passport.qualityScore} />
@@ -53,13 +78,17 @@ export function ProductPassportPanel({ passport }: { passport: ProductPassportDT
         <Tile title="Sustainability" metric={passport.sustainabilityScore} />
         <Tile title="Satisfaction" metric={passport.customerSatisfaction} />
         <Tile title="Authenticity" metric={passport.authenticityConfidence} />
-        <div className="rounded-md border border-line bg-white p-3">
-          <div className="text-lg font-bold text-ink">
-            ₹{passport.resaleValue.amount.toLocaleString("en-IN")}
+        {passport.resaleValue ? (
+          <div className="rounded-md border border-line bg-white p-3">
+            <div className="text-lg font-bold text-ink">
+              ₹{passport.resaleValue.amount.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] font-medium text-ink">Resale value</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-storm">{passport.resaleValue.label}</div>
           </div>
-          <div className="text-[11px] font-medium text-ink">Resale value</div>
-          <div className="mt-0.5 text-[10px] leading-tight text-storm">{passport.resaleValue.label}</div>
-        </div>
+        ) : (
+          <Tile title="Resale value" metric={null} />
+        )}
       </div>
     </div>
   );

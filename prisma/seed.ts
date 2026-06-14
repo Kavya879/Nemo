@@ -406,6 +406,143 @@ const SPECS_BY_ID: Record<string, Record<string, unknown>> = {
   "mkt-item-book": { format: "Hardcover", expectedLifespanMonths: 120, maintenanceCostPct: 0 },
 };
 
+// ── BRAND-NEW catalog (standard Amazon-style inventory with stock) ──────────
+// Distinct from the resold Item→Listing flow. Multiple units, decremented at
+// checkout. Includes an "Others" category example.
+interface BrandNewEntry {
+  id: string;
+  name: string;
+  category: string;
+  brand: string;
+  description: string;
+  price: number;
+  stock: number;
+}
+
+const BRAND_NEW: BrandNewEntry[] = [
+  {
+    id: "new-airbuds-pro",
+    name: "AcoustaPro Air Buds (2024)",
+    category: "Electronics",
+    brand: "AcoustaPro",
+    description: "Active noise-cancelling wireless earbuds with 30-hour battery and USB-C fast charge. Brand new, sealed.",
+    price: 5999,
+    stock: 25,
+  },
+  {
+    id: "new-pixelview-monitor",
+    name: "PixelView 27\" 4K Monitor",
+    category: "Electronics",
+    brand: "PixelView",
+    description: "27-inch 4K UHD IPS display, 144Hz, HDR10. Factory sealed with full manufacturer warranty.",
+    price: 22999,
+    stock: 8,
+  },
+  {
+    id: "new-trailguard-jacket",
+    name: "TrailGuard All-Weather Jacket",
+    category: "Apparel",
+    brand: "TrailGuard",
+    description: "Waterproof, breathable 3-layer shell jacket. New season stock, all sizes available.",
+    price: 7499,
+    stock: 40,
+  },
+  {
+    id: "new-cotton-tee",
+    name: "CottonComfort Organic Crew Tee",
+    category: "Apparel",
+    brand: "CottonComfort",
+    description: "100% organic combed cotton crew-neck t-shirt. Pre-shrunk, ethically made.",
+    price: 1299,
+    stock: 3,
+  },
+  {
+    id: "new-whirlmix-blender",
+    name: "WhirlMix Pro 1200W Blender",
+    category: "Home",
+    brand: "WhirlMix",
+    description: "1200W high-speed blender with 6 stainless blades and 2L BPA-free jar. Brand new.",
+    price: 4499,
+    stock: 15,
+  },
+  {
+    id: "new-glowlite-lamp",
+    name: "GlowLite LED Desk Lamp",
+    category: "Home",
+    brand: "GlowLite",
+    description: "Dimmable LED desk lamp with wireless charging base and 5 colour temperatures.",
+    price: 1899,
+    stock: 0,
+  },
+  {
+    id: "new-nimbus-runners",
+    name: "Nimbus Cloud Runners",
+    category: "Footwear",
+    brand: "Nimbus",
+    description: "Lightweight cushioned running shoes with breathable knit upper. New 2024 colourways.",
+    price: 4999,
+    stock: 22,
+  },
+  {
+    id: "new-buildblocks-deluxe",
+    name: "BuildBlocks Deluxe 1000-Piece Set",
+    category: "Toys",
+    brand: "BuildBlocks",
+    description: "1000-piece creative building set, compatible with all standard blocks. Brand new in box.",
+    price: 3499,
+    stock: 12,
+  },
+  {
+    id: "new-paperleaf-journal",
+    name: "PaperLeaf Hardcover Journal",
+    category: "Books",
+    brand: "PaperLeaf",
+    description: "A5 dotted hardcover journal, 200gsm paper, lay-flat binding. Brand new.",
+    price: 899,
+    stock: 60,
+  },
+  {
+    id: "new-misc-giftset",
+    name: "Artisan Self-Care Gift Set",
+    category: "Others",
+    brand: "Artisan",
+    description: "Curated self-care gift box with candle, soap and bath salts. New, gift-wrapped.",
+    price: 1599,
+    stock: 7,
+  },
+];
+
+async function seedProducts() {
+  for (const p of BRAND_NEW) {
+    const imageUrl = CATEGORY_IMAGE[p.category] ?? null;
+    await prisma.product.upsert({
+      where: { id: p.id },
+      update: {
+        name: p.name,
+        category: p.category,
+        brand: p.brand,
+        description: p.description,
+        price: p.price,
+        stock: p.stock,
+        imageUrl,
+        active: true,
+      },
+      create: {
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        brand: p.brand,
+        description: p.description,
+        price: p.price,
+        stock: p.stock,
+        imageUrl,
+        active: true,
+      },
+    });
+  }
+  console.info(`✔ ${BRAND_NEW.length} brand-new products seeded`);
+}
+
 async function seedItems() {
   for (const e of CATALOG) {
     const imageUrl = CATEGORY_IMAGE[e.category] ?? null;
@@ -486,8 +623,7 @@ async function seedListings() {
       verifiedCondition: e.grade,
       confidence: 0.9,
       flaws,
-      history: [`AI-graded ${e.grade}`, "Amazon Nemo certified"],
-      warranty: e.grade === "D" ? "Sold as-is — no warranty" : "30-day Amazon Nemo guarantee",
+      history: [`AI-graded ${e.grade}`, "Inspected & verified by Amazon Nemo"],
     };
     const icon = CATEGORY_ICON[e.category] ?? "📦";
     await prisma.listing.upsert({
@@ -567,6 +703,7 @@ async function reset() {
   await prisma.greenCredit.deleteMany();
   await prisma.rewardRedemption.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.product.deleteMany();
   await prisma.listing.deleteMany();
   await prisma.return.deleteMany();
   await prisma.gradeResult.deleteMany();
@@ -834,6 +971,7 @@ async function main() {
   console.info("Seeding Amazon Nemo database…");
   await reset();
   await seedConfig();
+  await seedProducts();
   await seedItems();
   await seedOrders();
   await seedListings();

@@ -42,14 +42,18 @@ export default function CheckoutPage() {
   const [draft, setDraft] = useState<Address>(EMPTY_ADDRESS);
   const [assessment, setAssessment] = useState<CartAssessmentDTO | null>(null);
 
-  const lineKey = lines.map((l) => l.listingId).join(",");
+  const resoldLines = lines.filter((l) => l.kind === "RESOLD" && l.listingId && l.itemId);
+  const lineKey = lines.map((l) => `${l.key}:${l.qty}`).join(",");
   useEffect(() => {
-    if (lines.length === 0) return;
+    if (resoldLines.length === 0) {
+      setAssessment(null);
+      return;
+    }
     apiClient
       .assessCart(
-        lines.map((l) => ({
-          listingId: l.listingId,
-          itemId: l.itemId,
+        resoldLines.map((l) => ({
+          listingId: l.listingId!,
+          itemId: l.itemId!,
           category: l.category,
           originalPrice: l.originalPrice,
           title: l.title,
@@ -96,8 +100,10 @@ export default function CheckoutPage() {
     try {
       const result = await apiClient.checkout(
         lines.map((l) => ({
+          kind: l.kind,
           listingId: l.listingId,
           itemId: l.itemId,
+          productId: l.productId,
           category: l.category,
           originalPrice: l.originalPrice,
           qty: l.qty,

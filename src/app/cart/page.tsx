@@ -15,18 +15,20 @@ export default function CartPage() {
   const { lines, subtotal, count, setQty, remove, clear } = useCart();
   const [assessment, setAssessment] = useState<CartAssessmentDTO | null>(null);
 
-  // Run the return-prevention engine across the cart (duplicate / risk / confidence).
-  const lineKey = lines.map((l) => l.listingId).join(",");
+  // Run the return-prevention engine across the cart — only the resold (second-
+  // life) lines, which carry the listing/item ids the engine assesses.
+  const resoldLines = lines.filter((l) => l.kind === "RESOLD" && l.listingId && l.itemId);
+  const lineKey = lines.map((l) => `${l.key}:${l.qty}`).join(",");
   useEffect(() => {
-    if (lines.length === 0) {
+    if (resoldLines.length === 0) {
       setAssessment(null);
       return;
     }
     apiClient
       .assessCart(
-        lines.map((l) => ({
-          listingId: l.listingId,
-          itemId: l.itemId,
+        resoldLines.map((l) => ({
+          listingId: l.listingId!,
+          itemId: l.itemId!,
           category: l.category,
           originalPrice: l.originalPrice,
           title: l.title,
@@ -37,8 +39,8 @@ export default function CartPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lineKey]);
 
-  const noteFor = (listingId: string) =>
-    assessment?.lines.find((l) => l.listingId === listingId);
+  const noteFor = (listingId?: string) =>
+    listingId ? assessment?.lines.find((l) => l.listingId === listingId) : undefined;
 
   if (lines.length === 0) {
     return (
@@ -67,9 +69,12 @@ export default function CartPage() {
         </div>
 
         <ul className="divide-y divide-line">
-          {lines.map((l) => (
-            <li key={l.listingId} className="flex gap-4 py-4">
-              <Link href={`/marketplace/${l.listingId}`} className="shrink-0">
+          {lines.map((l) => {
+            const href = l.kind === "NEW" ? `/products/${l.productId}` : `/marketplace/${l.listingId}`;
+            const atMax = l.qty >= l.maxQty;
+            return (
+            <li key={l.key} className="flex gap-4 py-4">
+              <Link href={href} className="shrink-0">
                 <ProductImage
                   src={l.imageUrl}
                   category={l.category}
@@ -78,10 +83,12 @@ export default function CartPage() {
                 />
               </Link>
               <div className="flex-1">
-                <Link href={`/marketplace/${l.listingId}`} className="font-medium text-ink hover:text-linkHover">
+                <Link href={href} className="font-medium text-ink hover:text-linkHover">
                   {l.title}
                 </Link>
-                <p className="text-xs text-success">In stock · Certified Pre-Owned</p>
+                <p className="text-xs text-success">
+                  {l.kind === "NEW" ? "Brand New · In stock" : "Certified Pre-Owned"}
+                </p>
                 <p className="text-xs text-storm">{l.category}</p>
                 {noteFor(l.listingId)?.note && (
                   <p
@@ -96,11 +103,11 @@ export default function CartPage() {
                 )}
 
                 <div className="mt-2 flex items-center gap-4">
-                  {/* Quantity stepper */}
+                  {/* Quantity stepper (bounded by available stock) */}
                   <div className="flex items-center overflow-hidden rounded-full border border-line">
                     <button
                       aria-label="Decrease quantity"
-                      onClick={() => setQty(l.listingId, l.qty - 1)}
+                      onClick={() => setQty(l.key, l.qty - 1)}
                       className="h-8 w-8 bg-mist/60 text-lg font-bold hover:bg-mist"
                     >
                       {l.qty <= 1 ? "🗑" : "−"}
@@ -108,14 +115,18 @@ export default function CartPage() {
                     <span className="w-10 text-center text-sm font-semibold">{l.qty}</span>
                     <button
                       aria-label="Increase quantity"
-                      onClick={() => setQty(l.listingId, l.qty + 1)}
-                      className="h-8 w-8 bg-mist/60 text-lg font-bold hover:bg-mist"
+                      disabled={atMax}
+                      onClick={() => setQty(l.key, l.qty + 1)}
+                      className="h-8 w-8 bg-mist/60 text-lg font-bold hover:bg-mist disabled:cursor-not-allowed disabled:text-line"
                     >
                       +
                     </button>
                   </div>
+                  {atMax && l.kind === "NEW" && (
+                    <span className="text-xs text-warn">Max available reached</span>
+                  )}
                   <button
-                    onClick={() => remove(l.listingId)}
+                    onClick={() => remove(l.key)}
                     className="text-sm text-link hover:text-linkHover hover:underline"
                   >
                     Delete
@@ -131,7 +142,8 @@ export default function CartPage() {
                 )}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
 
         <div className="border-t border-line pt-3 text-right text-lg">

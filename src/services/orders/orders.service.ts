@@ -3,6 +3,7 @@ import { configRepository } from "@/repositories/config.repository";
 import { orderRepository } from "@/repositories/order.repository";
 import { listingRepository } from "@/repositories/listing.repository";
 import { itemRepository } from "@/repositories/item.repository";
+import { productRepository } from "@/repositories/product.repository";
 import { ConflictError, NotFoundError } from "@/lib/errors";
 
 /**
@@ -115,13 +116,19 @@ export function createOrdersService(now: () => number = () => Date.now()) {
 
       const cancelled = await orderRepository.updateStatus(orderId, "CANCELLED");
 
-      // Put the item back into sellable inventory if this purchase had taken it
-      // off the marketplace. Best-effort — never block the cancellation on it.
+      // Restore inventory. Best-effort — never block the cancellation on it.
       try {
-        const listing = await listingRepository.findByItemId(order.itemId);
-        if (listing && listing.status === "SOLD") {
-          await listingRepository.updateStatus(listing.id, "ACTIVE");
-          await itemRepository.updateStatus(order.itemId, "LISTED");
+        if (order.productId) {
+          // Brand-new product: return the purchased units to stock.
+          await productRepository.incrementStock(order.productId, order.quantity ?? 1);
+        } else if (order.itemId) {
+          // Resold item: put it back on the marketplace if this purchase had
+          // taken it off (listing → SOLD, item → SOLD).
+          const listing = await listingRepository.findByItemId(order.itemId);
+          if (listing && listing.status === "SOLD") {
+            await listingRepository.updateStatus(listing.id, "ACTIVE");
+            await itemRepository.updateStatus(order.itemId, "LISTED");
+          }
         }
       } catch {
         /* inventory restore is best-effort; the order is already cancelled */

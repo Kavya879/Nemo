@@ -33,19 +33,20 @@ export function buildDigitalTwin(input: {
 }): DigitalTwin {
   const { risk, passport, cohort, mismatch } = input;
 
+  const satMetric = passport.customerSatisfaction;
   const returnProb = clamp01(risk.score / 100);
-  const satisfaction = clamp01(
-    0.5 * (passport.customerSatisfaction.score / 100) +
-      0.3 * (1 - returnProb) +
-      0.2 * cohort.keptRate,
-  );
+  // When there are no real reviews, drop the satisfaction term and renormalise
+  // its weight across the remaining (real) evidence — never invent a number.
+  const satisfaction = satMetric
+    ? clamp01(0.5 * (satMetric.score / 100) + 0.3 * (1 - returnProb) + 0.2 * cohort.keptRate)
+    : clamp01(0.6 * (1 - returnProb) + 0.4 * cohort.keptRate);
   const success = clamp01(
     0.4 * (1 - returnProb) + 0.35 * satisfaction + 0.25 * cohort.keptRate,
   );
 
   // Overall confidence = how well-evidenced the inputs are.
   const confidence = round(
-    clamp01(0.5 * risk.confidence + 0.3 * cohort.confidence + 0.2 * passport.customerSatisfaction.confidence),
+    clamp01(0.5 * risk.confidence + 0.3 * cohort.confidence + 0.2 * (satMetric?.confidence ?? 0)),
   );
 
   // Risk factors: the strongest contributing reasons + mismatch if notable.

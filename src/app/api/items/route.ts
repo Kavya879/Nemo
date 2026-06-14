@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       brand: input.brand,
       originalPrice: input.originalPrice,
       repairability: input.repairability ?? 0.5,
+      imageUrl: input.imageUrl ?? null,
       status: "GRADED",
     });
     return ok(item, 201);

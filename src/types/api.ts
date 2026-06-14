@@ -31,19 +31,29 @@ export const ListingStatusSchema = z.object({
   status: z.enum(["ACTIVE", "RESERVED", "SOLD", "INACTIVE"]),
 });
 
+/**
+ * A checkout line for either ecosystem. RESOLD lines carry listingId + itemId
+ * (qty is always 1); NEW lines carry productId + qty (validated against live
+ * stock server-side). `kind` defaults to RESOLD for backward compatibility.
+ */
+export const CheckoutLineSchema = z
+  .object({
+    kind: z.enum(["NEW", "RESOLD"]).default("RESOLD"),
+    listingId: z.string().optional(),
+    itemId: z.string().optional(),
+    productId: z.string().optional(),
+    category: z.string().min(1),
+    originalPrice: z.number().nonnegative(),
+    qty: z.number().int().positive(),
+  })
+  .refine(
+    (l) => (l.kind === "NEW" ? !!l.productId : !!l.listingId && !!l.itemId),
+    "NEW lines need productId; RESOLD lines need listingId + itemId.",
+  );
+
 export const CheckoutRequestSchema = z.object({
   userId: z.string().optional(),
-  lines: z
-    .array(
-      z.object({
-        listingId: z.string().min(1),
-        itemId: z.string().min(1),
-        category: z.string().min(1),
-        originalPrice: z.number().nonnegative(),
-        qty: z.number().int().positive(),
-      }),
-    )
-    .min(1),
+  lines: z.array(CheckoutLineSchema).min(1),
 });
 export type CheckoutRequest = z.infer<typeof CheckoutRequestSchema>;
 
@@ -80,6 +90,8 @@ export const CreateItemRequestSchema = z.object({
   brand: z.string().optional(),
   originalPrice: z.number().positive(),
   repairability: z.number().min(0).max(1).optional(),
+  /** Actual uploaded product photo (data URL / URL) — persisted as the item image. */
+  imageUrl: z.string().optional(),
 });
 export type CreateItemRequest = z.infer<typeof CreateItemRequestSchema>;
 

@@ -299,13 +299,22 @@ model ReturnEvent {
   @@index([returnCaseId])
 }
 
-/// A customer's purchase of an item — what makes a return possible, and only
-/// within the configured return window after delivery.
+/// A customer's purchase — of either a second-life Item (resold) or a brand-new
+/// Product. Resold purchases are returnable within the configured window;
+/// brand-new product purchases carry a quantity and decrement Product stock.
 model Order {
   id         String      @id @default(cuid())
   userId     String      @default("demo-user")
-  itemId     String
-  item       Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// Set for resold purchases (links to the physical Item that can be returned).
+  itemId     String?
+  item       Item?       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// Set for brand-new purchases (links to the catalog Product).
+  productId  String?
+  product    Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  /// Units purchased (always 1 for resold; 1..N for brand-new).
+  quantity   Int         @default(1)
+  /// Unit price captured at purchase time (for brand-new line totals).
+  unitPrice  Float?
   orderedAt  DateTime
   /// Null until delivered (newly-placed purchases aren't delivered yet).
   deliveredAt DateTime?
@@ -314,6 +323,32 @@ model Order {
 
   @@index([userId])
   @@index([itemId])
+  @@index([productId])
+}
+
+/// A brand-new catalog product — standard Amazon-style inventory with multiple
+/// units in stock. Distinct from the Item→Listing second-life (resold) flow.
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  brand       String?
+  description String
+  price       Float
+  imageUrl    String?
+  /// Available units. Out of stock when this reaches 0.
+  stock       Int      @default(0)
+  /// Cumulative units sold (for display / analytics).
+  soldCount   Int      @default(0)
+  /// Whether the product is listed for sale at all.
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      Order[]
+
+  @@index([category])
+  @@index([active])
 }
 
 /// A return event that brings an item back into the loop.

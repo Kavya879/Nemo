@@ -45,13 +45,16 @@ export function ProductDetail({ id }: { id: string }) {
 
   function toCartLine(l: ListingDTO): Omit<CartLine, "qty"> {
     return {
+      key: l.id,
+      kind: "RESOLD",
       listingId: l.id,
       itemId: l.itemId,
       title: l.title,
       price: l.price,
       category: l.item?.category ?? "general",
       originalPrice: l.item?.originalPrice ?? l.price,
-      imageUrl: l.item?.imageUrl ?? null,
+      imageUrl: l.photoUrl ?? l.item?.imageUrl ?? null,
+      maxQty: 1,
     };
   }
 
@@ -75,6 +78,7 @@ export function ProductDetail({ id }: { id: string }) {
   const original = listing.item?.originalPrice ?? Math.round(listing.price / (listing.pricePct || 1));
   const saved = Math.max(original - listing.price, 0);
   const rating = 3 + listing.healthCard.confidence * 2;
+  const soldOut = listing.status === "SOLD";
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-3">
@@ -90,7 +94,7 @@ export function ProductDetail({ id }: { id: string }) {
         {/* Image */}
         <div className="lg:col-span-4">
           <ProductImage
-            src={listing.item?.imageUrl}
+            src={listing.photoUrl ?? listing.item?.imageUrl}
             category={category}
             alt={listing.title}
             className="h-80 w-full rounded"
@@ -136,13 +140,18 @@ export function ProductDetail({ id }: { id: string }) {
               <span className="align-top text-sm">₹</span>
               <span className="font-medium">{listing.price.toLocaleString("en-IN")}</span>
             </div>
-            <p className="text-sm text-storm">FREE delivery · {listing.healthCard.warranty}</p>
-            <p className="text-lg font-medium text-success">In stock</p>
+            <p className="text-sm text-storm">FREE delivery</p>
+            {soldOut ? (
+              <p className="text-lg font-medium text-storm">Sold Out</p>
+            ) : (
+              <p className="text-lg font-medium text-success">In stock · one available</p>
+            )}
             <button
               onClick={addToCart}
-              className="w-full rounded-full bg-amzYellow py-2 text-sm font-medium text-ink hover:bg-amzYellowDark"
+              disabled={soldOut}
+              className="w-full rounded-full bg-amzYellow py-2 text-sm font-medium text-ink hover:bg-amzYellowDark disabled:cursor-not-allowed disabled:bg-mist disabled:text-storm"
             >
-              Add to Cart
+              {soldOut ? "Sold Out" : "Add to Cart"}
             </button>
             {addedToCart && (
               <p className="rounded bg-success/10 py-1 text-center text-xs font-medium text-success">
@@ -154,7 +163,8 @@ export function ProductDetail({ id }: { id: string }) {
             )}
             <button
               onClick={buyNow}
-              className="w-full rounded-full bg-amzOrange py-2 text-sm font-medium text-ink hover:bg-amzOrangeDark"
+              disabled={soldOut}
+              className="w-full rounded-full bg-amzOrange py-2 text-sm font-medium text-ink hover:bg-amzOrangeDark disabled:cursor-not-allowed disabled:bg-mist disabled:text-storm"
             >
               Buy Now
             </button>
@@ -162,7 +172,7 @@ export function ProductDetail({ id }: { id: string }) {
               Earn Amazon Nemo Credits 🌱 <span className="font-medium">after purchase</span>
             </p>
           </div>
-          {intel && (
+          {intel?.twin && (
             <div className="mt-3">
               <DigitalTwinPanel twin={intel.twin} cohort={intel.cohort} />
             </div>

@@ -48,26 +48,19 @@ function defaultDeps(): ListingDeps {
   return { primaryCopy: primary, fallbackCopy: template };
 }
 
-const WARRANTY_BY_GRADE: Record<Grade, string> = {
-  A: "30-day Amazon Nemo guarantee",
-  B: "30-day Amazon Nemo guarantee",
-  C: "14-day Amazon Nemo guarantee",
-  D: "Sold as-is — no warranty",
-};
-
 export function createListingService(deps: ListingDeps = defaultDeps()) {
   function buildHealthCard(input: ListingInput): ProductHealthCard {
+    // History records only real provenance events. The AI grade line uses the
+    // EXACT confidence the grader produced — no rounding-up, no embellishment.
     const history = [
       ...(input.history ?? []),
-      `AI-graded ${input.grade} (${Math.round(input.confidence * 100)}% confidence)`,
-      "Amazon Nemo certified",
+      `AI-graded ${input.grade} at ${Math.round(input.confidence * 100)}% confidence`,
     ];
     return {
       verifiedCondition: input.grade,
       confidence: input.confidence,
       flaws: input.flaws,
       history,
-      warranty: WARRANTY_BY_GRADE[input.grade],
     };
   }
 
