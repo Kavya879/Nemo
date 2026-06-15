@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Amazon Nemo — the intelligent bridge between returns and second-life buyers.",
+  "engines": {
+    "node": ">=18.0.0 <21.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
