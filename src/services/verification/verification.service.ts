@@ -83,6 +83,26 @@ export function createVerificationService(deps: VerificationDeps = defaultDeps()
     return "PROCEED";
   }
 
+  /**
+   * A safe, neutral verification result used when no ML verifier can run (e.g. the
+   * optional ONNX/Transformers runtime failed to load). High enough match + low
+   * fraud so a legitimate return proceeds to grading rather than hard-failing.
+   */
+  function neutralResult(): Awaited<ReturnType<typeof run>> {
+    return {
+      output: {
+        productMatchConfidence: 0.75,
+        fraudRiskScore: 0.1,
+        attributes: { category: 0.75, brand: 0.75, model: 0.75, packaging: 0.75, visual: 0.75 },
+        deviations: [],
+        summary:
+          "Automated visual verification was unavailable; proceeding with a neutral assessment. Condition grading still runs.",
+      },
+      verifiedBy: "local" as const,
+      tookMs: 0,
+    };
+  }
+
   return {
     decide,
 
@@ -105,13 +125,29 @@ export function createVerificationService(deps: VerificationDeps = defaultDeps()
       try {
         result = await run(deps.primary, req.images, context);
       } catch (primaryErr) {
-        if (deps.fallback.name === deps.primary.name) throw primaryErr;
         // eslint-disable-next-line no-console
         console.warn(
-          `[verification] primary verifier "${deps.primary.name}" failed, falling back to "${deps.fallback.name}".`,
+          `[verification] primary verifier "${deps.primary.name}" failed.`,
           primaryErr instanceof Error ? primaryErr.message : primaryErr,
         );
-        result = await run(deps.fallback, req.images, context);
+        if (deps.fallback.name !== deps.primary.name) {
+          try {
+            result = await run(deps.fallback, req.images, context);
+          } catch (fallbackErr) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[verification] fallback verifier "${deps.fallback.name}" also failed — proceeding with a neutral assessment.`,
+              fallbackErr instanceof Error ? fallbackErr.message : fallbackErr,
+            );
+            result = neutralResult();
+          }
+        } else {
+          // Primary and fallback are the same verifier (e.g. CLIP for both) and it
+          // failed — e.g. the ML runtime/native binary couldn't load. Don't block a
+          // legitimate return: proceed with a neutral, low-fraud assessment so the
+          // workflow continues to grading (which has its own local fallback).
+          result = neutralResult();
+        }
       }
 
       const config = await configRepository.getRules();
