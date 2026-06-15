@@ -6,8 +6,6 @@ import { GradeResultSchema, type GradeResult, type ImageInput } from "@/types";
 import type { Prisma } from "@prisma/client";
 import { createBedrockGrader } from "./bedrock-grader";
 import { createLocalGrader } from "./local-grader";
-import { createClipGrader } from "./clip-grader";
-import { createKaputtGrader } from "./kaputt-grader";
 import type { GradeContext, GraderOutput, ImageGrader } from "./image-grader.interface";
 
 /**
@@ -42,14 +40,39 @@ export interface GradingDeps {
 /** Default wiring: provider chosen by config, sharp grader as the safety net. */
 function defaultDeps(): GradingDeps {
   const local = createLocalGrader();
-  const primary =
-    env.GRADER_PROVIDER === "bedrock"
-      ? createBedrockGrader()
-      : env.GRADER_PROVIDER === "clip"
-        ? createClipGrader()
-        : env.GRADER_PROVIDER === "kaputt"
-          ? createKaputtGrader()
-          : local;
+  let primary: ImageGrader;
+  if (env.GRADER_PROVIDER === "bedrock") {
+    primary = createBedrockGrader();
+  } else if (env.GRADER_PROVIDER === "clip") {
+    // Lazy-load clip grader to avoid bundling @xenova/transformers at build time.
+    let clipInstance: ImageGrader | null = null;
+    primary = {
+      name: "clip" as const,
+      async grade(images, context) {
+        if (!clipInstance) {
+          const { createClipGrader } = await import("./clip-grader");
+          clipInstance = createClipGrader();
+        }
+        return clipInstance.grade(images, context);
+      },
+    };
+  } else if (env.GRADER_PROVIDER === "kaputt") {
+    // Lazy-load kaputt grader to avoid bundling onnxruntime-node at build time.
+    // The actual module is loaded on first grade() call, not at import time.
+    let kaputtInstance: ImageGrader | null = null;
+    primary = {
+      name: "kaputt" as const,
+      async grade(images, context) {
+        if (!kaputtInstance) {
+          const { createKaputtGrader } = await import("./kaputt-grader");
+          kaputtInstance = createKaputtGrader();
+        }
+        return kaputtInstance.grade(images, context);
+      },
+    };
+  } else {
+    primary = local;
+  }
   return { primary, fallback: local };
 }
 

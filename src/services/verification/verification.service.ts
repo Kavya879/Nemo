@@ -11,7 +11,6 @@ import {
   type VerificationRecommendationT,
 } from "@/types";
 import { createBedrockVerifier } from "./bedrock-verifier";
-import { createClipVerifier } from "./clip-verifier";
 import type { ProductVerifier, VerifyContext } from "./product-verifier.interface";
 
 /**
@@ -41,9 +40,21 @@ export interface VerificationDeps {
 }
 
 function defaultDeps(): VerificationDeps {
-  const clip = createClipVerifier();
-  const primary = env.GRADER_PROVIDER === "bedrock" ? createBedrockVerifier() : clip;
-  return { primary, fallback: clip };
+  // Lazy-load the CLIP verifier to prevent @xenova/transformers from being
+  // bundled into server chunks at build time (causes prerender failures).
+  let clipInstance: ProductVerifier | null = null;
+  const lazyClip: ProductVerifier = {
+    name: "clip" as const,
+    async verify(images, context) {
+      if (!clipInstance) {
+        const { createClipVerifier } = await import("./clip-verifier");
+        clipInstance = createClipVerifier();
+      }
+      return clipInstance.verify(images, context);
+    },
+  };
+  const primary = env.GRADER_PROVIDER === "bedrock" ? createBedrockVerifier() : lazyClip;
+  return { primary, fallback: lazyClip };
 }
 
 export function createVerificationService(deps: VerificationDeps = defaultDeps()) {
