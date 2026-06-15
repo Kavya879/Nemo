@@ -75,7 +75,7 @@ export function ReturnWorkflow() {
   // reflects whatever the admin just did. Skipped when deep-linking a fresh return
   // or resuming a specific case via ?caseId=.
   useEffect(() => {
-    if (search.get("itemId") || search.get("caseId")) return;
+    if (search?.get("itemId") || search?.get("caseId")) return;
     let cancelled = false;
     apiClient
       .getReturnCases(user.id)
@@ -95,7 +95,7 @@ export function ReturnWorkflow() {
 
   // Deep-link to a specific return case: ?caseId=… loads that case directly.
   useEffect(() => {
-    const caseId = search.get("caseId");
+    const caseId = search?.get("caseId");
     if (!caseId) return;
     let cancelled = false;
     apiClient
@@ -139,7 +139,7 @@ export function ReturnWorkflow() {
 
   // Deep-link from "Your Orders": ?itemId=… pre-selects that item (skip the grid).
   useEffect(() => {
-    const itemId = search.get("itemId");
+    const itemId = search?.get("itemId");
     if (!itemId || selected || orders.length === 0) return;
     const match = orders.find((o) => o.order.item?.id === itemId && o.returnEligible);
     if (match?.order.item) setSelected(match.order.item);

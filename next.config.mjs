@@ -10,12 +10,14 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push({
-        "onnxruntime-node": "commonjs onnxruntime-node",
-        sharp: "commonjs sharp",
-        "@xenova/transformers": "commonjs @xenova/transformers",
-      });
+      // Mark native packages as external so webpack never tries to bundle them.
+      // They're resolved at runtime from node_modules instead.
+      config.externals = [
+        ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
+        "onnxruntime-node",
+        "sharp",
+        "@xenova/transformers",
+      ];
     }
     return config;
   },

@@ -14,7 +14,7 @@ import { LoadingState, ErrorState } from "@/components/flow/States";
  */
 function MarketplaceInner() {
   const params = useSearchParams();
-  const q = params.get("q")?.toLowerCase() ?? "";
+  const q = params?.get("q")?.toLowerCase() ?? "";
   const [listings, setListings] = useState<ListingDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 

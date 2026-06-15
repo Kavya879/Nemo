@@ -13,7 +13,7 @@ import { LoadingState, ErrorState } from "@/components/flow/States";
  */
 function ProductsInner() {
   const params = useSearchParams();
-  const q = params.get("q")?.toLowerCase() ?? "";
+  const q = params?.get("q")?.toLowerCase() ?? "";
   const [products, setProducts] = useState<ProductDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 

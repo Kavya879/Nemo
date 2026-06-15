@@ -14,7 +14,7 @@ import { useCategories } from "@/lib/use-categories";
 
 function SellInner() {
   const search = useSearchParams();
-  const resellItemId = search.get("itemId");
+  const resellItemId = search?.get("itemId") ?? null;
   const { categories } = useCategories();
 
   const [name, setName] = useState("");
