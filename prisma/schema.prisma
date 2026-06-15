@@ -658,6 +658,15 @@ model RoutingConfig {
   /// added to an existing row; the seed always populates it.
   returnTransitDiscountTiers Json?
 
+  // ── Circular Commerce Decision Engine (auto route recommendation) ──
+  /// Condition score (0..100) per grade, e.g. { "A": 92, "B": 80, "C": 67, "D": 30 }.
+  conditionScoreByGrade Json?
+  /// Ordered score→route bands (high→low), e.g.
+  /// [{ "minScore": 90, "route": "RESELL_AS_IS" }, …, { "minScore": 0, "route": "RECYCLE" }].
+  routeScoreBands Json?
+  /// Confidence band cutoffs (0..1): { "high": 0.8, "medium": 0.6 }.
+  confidenceBandThresholds Json?
+
   updatedAt DateTime @updatedAt
 }
 

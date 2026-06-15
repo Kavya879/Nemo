@@ -38,6 +38,8 @@ import type {
   ReturnDTO,
   RewardDTO,
   RoutingResultDTO,
+  CircularDecisionDTO,
+  RouteDTO,
 } from "@/types/dto";
 import type { Grade, RoutingPath, DetectedFlaw } from "@/types";
 import { currentUserId, getCurrentUser } from "@/lib/session";
@@ -211,6 +213,10 @@ export const apiClient = {
         ...(pickup ? { pickupLat: pickup.lat, pickupLng: pickup.lng } : {}),
       }),
     }),
+  /** All return cases for the signed-in user (newest first) — used to resume an
+   *  in-progress return after a reload or account switch. */
+  getReturnCases: (userId: string = currentUserId()) =>
+    request<ReturnCaseDTO[]>(`/api/return-cases?userId=${encodeURIComponent(userId)}`),
   getReturnCase: (id: string) => request<ReturnCaseDTO>(`/api/return-cases/${id}`),
   gradeCase: (id: string, images: GradeImageInput[]) =>
     request<ReturnCaseDTO>(`/api/return-cases/${id}/grade`, {
@@ -219,6 +225,21 @@ export const apiClient = {
     }),
   analyzeCase: (id: string) =>
     request<ReturnCaseDTO>(`/api/return-cases/${id}/analyze`, { method: "POST" }),
+  /** Circular Commerce Decision Engine — live route recommendation for a case. */
+  getDecision: (id: string) =>
+    request<CircularDecisionDTO>(`/api/return-cases/${id}/decision`),
+  /** Apply the recommended route (or a manual override) to a case. */
+  chooseRoute: (id: string, route: RouteDTO, opts?: { overridden?: boolean; reason?: string }) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/choose-route`, {
+      method: "POST",
+      body: JSON.stringify({ route, overridden: opts?.overridden, reason: opts?.reason }),
+    }),
+  /** Escalate a case to Operations when the recommendation isn't satisfactory. */
+  escalateRoute: (id: string, reason?: string) =>
+    request<ReturnCaseDTO>(`/api/return-cases/${id}/escalate`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
   completePickup: (id: string) =>
     request<ReturnCaseDTO>(`/api/return-cases/${id}/complete-pickup`, { method: "POST" }),
   rejectPickup: (id: string, reason: string) =>

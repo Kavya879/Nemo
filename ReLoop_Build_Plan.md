@@ -4,6 +4,67 @@
 **For use with:** Kiro / Codex / Claude Code
 **Approach:** Backend first, then frontend. Modular, scalable, test-verified at every phase.
 
+> The original 9-phase plan (below) built the **spine**. The product has since grown well
+> past it. The section immediately below documents the **current, implemented system (v2)**;
+> the phased plan is retained as the historical build narrative. Architecture, diagrams, and
+> workflows live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+---
+
+## Implemented System — Current State (v2)
+
+### Beyond the original 8 features
+The shipped product now spans the full **return → resale → physical delivery → operations**
+loop, with two inventories and four user roles.
+
+**Two product ecosystems.** A type-aware storefront over **brand-new `Product`** (atomic,
+oversell-guarded stock) and **resold `Item`/`Listing`** (one-of-a-kind, `status=SOLD` once
+bought). `Order` is type-aware; the **cart is per-user** (`localStorage` keyed by signed-in
+user) and re-validated server-side at checkout.
+
+**Return-decision state machine** (`return-workflow.service`). A persisted, auditable machine:
+`INITIATED → (verify gate) → GRADED → FEASIBILITY_ANALYZED →` either *return-to-seller* or the
+*Second Life* path (auto-list → nearby buyer → delivery verification → refund → complete), with
+**no-buyer → liquidation/donation**. Every transition writes a `ReturnEvent` audit row.
+
+**Product verification gate.** Before grading, an AI check confirms the returned item matches
+the original purchase and screens for fraud; low confidence / high risk **escalates to manual
+review** (admin can vouch and bypass, or reject).
+
+**Return-in-Transit Deals** (`return-deals.service`). Good-grade (A/B) returns are sold to
+nearby buyers **before warehouse intake**, for a **7-day window** (`returnTransitArrivalDays`),
+at a discount that **grows with days in the pipeline** (config tiers). Buyers **Add to cart →
+checkout**; `reserve()` is an atomic single-winner update.
+
+**Delivery-partner board** (`delivery.service`, `/delivery`). Composes live tasks in three
+families: **Deliveries** (every sold second-hand item appears immediately with reverse-geocoded
+buyer + sender addresses), **Pickups** (return pickups, second-life exchange verifications, and
+**warehouse pickups** for in-transit items unsold past 7 days → nearest real Amazon FC), and
+**Completed**.
+
+**Delivery-rejection review.** A partner rejecting a second-hand item parks the case in
+`DELIVERY_REJECTED_REVIEW`; an admin **keeps it (relist)** or **removes it from the store**
+(route the item out of inventory).
+
+**Operations Console** (`/admin`, admin-only): live Returns Command Center · Delivery
+Rejections · Challenges · Listings · live Config Control. **Challenges/disputes** let sellers
+contest an AI verdict or request human verification. **TrustPass** scores seller reputation.
+**Green Credits** convert second-life actions into CO₂/cost saved + redeemable rewards/coupons.
+**Shopping Intelligence** adds a product passport, alternatives, cart advisor, and return-risk.
+
+### Surface area (as built)
+- ~60 API routes under `src/app/api/**`; 22 service domains; 20 Prisma models; 19 app pages.
+- Four roles (owner · buyer · admin · delivery) via `lib/session.ts` (auth placeholder).
+- **78 unit tests** green; integration suite covers the end-to-end API journey.
+
+### Engineering invariants (unchanged, enforced)
+- **Nothing hardcoded** — secrets in Zod-validated env; all business rules (incl. the 7-day
+  transit window, discount tiers, thresholds, CO₂/credit rates) in the `RoutingConfig` table.
+- **Layered** — route (HTTP) → service (logic) → repository (DB) → Postgres; Redis + Bedrock
+  behind interfaces (Bedrock ⇄ local/MobileNetV3 grader is one config value, with fallback).
+- **Real-data-only intelligence** — metrics with no backing data render empty states, never
+  optimistic priors.
+
 ---
 
 ## How to Read This Document

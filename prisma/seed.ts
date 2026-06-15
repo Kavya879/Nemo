@@ -88,12 +88,28 @@ async function seedConfig() {
     ] as Prisma.InputJsonValue,
   };
 
+  // Circular Commerce Decision Engine — live-tunable route bands & confidence.
+  const decisionEngine = {
+    conditionScoreByGrade: { A: 92, B: 80, C: 67, D: 30 } as Prisma.InputJsonValue,
+    routeScoreBands: [
+      { minScore: 90, route: "RESELL_AS_IS" },
+      { minScore: 75, route: "REFURBISH" },
+      { minScore: 60, route: "PEER_TO_PEER" },
+      { minScore: 40, route: "DONATE" },
+      { minScore: 0, route: "RECYCLE" },
+    ] as Prisma.InputJsonValue,
+    confidenceBandThresholds: { high: 0.8, medium: 0.6 } as Prisma.InputJsonValue,
+  };
+
   const base = {
     matchRadiusKm: 5,
-    // Pre-grade product-verification thresholds
-    verificationMatchThreshold: 0.7,
-    fraudRiskThreshold: 0.5,
-    minQualityConfidence: 0.6,
+    // Pre-grade product-verification thresholds. Tuned so legitimate returns
+    // clear the CLIP/offline gate and reach GRADED (where the Circular Decision
+    // Engine takes over), while clear mismatches/high-fraud still escalate.
+    // All three are live-tunable in Admin → Config Control.
+    verificationMatchThreshold: 0.4,
+    fraudRiskThreshold: 0.85,
+    minQualityConfidence: 0.3,
     peerToPeerMinBuyers: 1,
     repairabilityThreshold: 0.5,
     gradeDefaultRoutes,
@@ -107,6 +123,7 @@ async function seedConfig() {
     preventionBaseConfidence: 0.7,
     returnWindowDays: 30,
     ...costModel,
+    ...decisionEngine,
   };
 
   const config = await prisma.routingConfig.upsert({
@@ -867,14 +884,18 @@ const CASES: CaseSpec[] = [
   { item: "demo-item-monitor", chain: "return", status: "RETURNED_TO_SELLER", reason: "Dead pixels" },
   { item: "demo-item-jacket", chain: "return", status: "RETURNED_TO_SELLER", reason: "Size too large" },
   { item: "demo-item-sneakers", chain: "return", status: "RETURN_PICKUP_SCHEDULED", reason: "Size too small" },
-  { item: "mkt-item-coffee", chain: "return", status: "FEASIBILITY_ANALYZED", reason: "Not as described" },
   { item: "mkt-item-boots", chain: "return", status: "RETURNED_TO_SELLER", reason: "Uncomfortable fit" },
-  { item: "mkt-item-jeans", chain: "return", status: "GRADED", reason: "Wrong size" },
   { item: "demo-item-tshirt", chain: "match", status: "BUYER_RESERVED", reason: "Size too large", buyer: { id: "demo-buyer-1", name: "Aarav", distanceKm: 1.0 } },
   { item: "mkt-item-book", chain: "match", status: "COMPLETED", reason: "Duplicate gift", buyer: { id: "demo-buyer-3", name: "Kabir", distanceKm: 3.0 } },
   { item: "mkt-item-powerbank", chain: "match", status: "DELIVERY_VERIFICATION", reason: "Slow charging", buyer: { id: "demo-buyer-2", name: "Diya", distanceKm: 2.0 } },
   { item: "demo-item-blender", chain: "liquidate", status: "LIQUIDATED", reason: "Stopped working", disposition: "RECYCLED" },
   { item: "demo-item-lamp", chain: "donate", status: "DONATION_PENDING", reason: "No longer needed", disposition: "DONATED" },
+  // ↓ IMPORTANT: These two GRADED/FEASIBILITY cases are seeded LAST (idx 11, 12)
+  // so they're the NEWEST by createdAt. The Return Workflow page auto-resumes
+  // the newest non-terminal case → the user sees the Circular Decision Engine
+  // panel immediately on page load (demo discoverability).
+  { item: "mkt-item-coffee", chain: "return", status: "FEASIBILITY_ANALYZED", reason: "Not as described" },
+  { item: "mkt-item-jeans", chain: "return", status: "GRADED", reason: "Wrong size" },
 ];
 
 async function seedReturnCases() {
@@ -893,7 +914,7 @@ async function seedReturnCases() {
     const feasibility = analyzed ? feasibilityFor(item.originalPrice, grade, demand) : null;
     const decision = feasibility ? (feasibility.decision as "FEASIBLE" | "NOT_FEASIBLE") : null;
     const tookMs = 800 + Math.floor(Math.random() * 1100);
-    const baseTime = Date.now() - idx * 9 * 60_000; // newest first
+    const baseTime = Date.now() - (CASES.length - 1 - idx) * 9 * 60_000; // last in array = newest
 
     const gr = await prisma.gradeResult.create({
       data: {

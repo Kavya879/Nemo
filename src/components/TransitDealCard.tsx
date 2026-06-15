@@ -89,7 +89,7 @@ export function TransitDealCard({ deal }: { deal: ReturnDealDTO }) {
           onClick={() => router.push("/cart")}
           className="mt-auto w-full rounded-full bg-success/10 py-1.5 text-sm font-medium text-success"
         >
-          ✓ Reserved in cart · View cart
+          ✓ Added to cart · View cart
         </button>
       ) : (
         <div className="mt-auto grid grid-cols-2 gap-2">
@@ -97,7 +97,7 @@ export function TransitDealCard({ deal }: { deal: ReturnDealDTO }) {
             onClick={() => reserve(false)}
             className="rounded-full bg-amzYellow py-1.5 text-sm font-medium text-ink hover:bg-amzYellowDark"
           >
-            Reserve
+            Add to cart
           </button>
           <button
             onClick={() => reserve(true)}

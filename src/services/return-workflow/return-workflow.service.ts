@@ -679,6 +679,136 @@ export function createReturnWorkflowService() {
     },
 
     /**
+     * Circular Commerce Decision Engine — APPLY a route (the recommended one, or
+     * a manual override). Drives the existing disposition machinery so nothing is
+     * duplicated: resale routes list the item for Second Life, DONATE parks it for
+     * the donate/discard choice, RECYCLE routes it to material recovery. The chosen
+     * route + whether it overrode the recommendation is captured in the audit trail.
+     */
+    async applyCircularRoute(input: {
+      caseId: string;
+      route: RoutingPath;
+      overridden?: boolean;
+      reason?: string;
+    }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(
+        c.status,
+        ["GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED"],
+        "apply route",
+      );
+      const who = input.overridden ? "Manually overridden" : "Auto-routed by Nemo";
+      const tail = input.reason?.trim() ? ` ${input.reason.trim()}` : "";
+      const auditData = {
+        chosenRoute: input.route,
+        overridden: !!input.overridden,
+        reason: input.reason ?? null,
+      } as unknown as Prisma.InputJsonValue;
+
+      // ── DONATE ──────────────────────────────────────────────────────────
+      if (input.route === "DONATE") {
+        if (c.secondLifeListingId) {
+          await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
+        }
+        return returnCaseRepository.transition(c.id, {
+          status: "DONATION_PENDING",
+          message: `${who} → DONATE. Awaiting your choice: donate through Amazon, or discard.${tail}`,
+          data: auditData,
+          patch: { disposition: "DONATED" },
+        });
+      }
+
+      // ── RECYCLE ─────────────────────────────────────────────────────────
+      if (input.route === "RECYCLE") {
+        if (c.secondLifeListingId) {
+          await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
+        }
+        await itemRepository.updateStatus(c.itemId, "RECYCLED");
+        if (c.orderId) await orderRepository.updateStatus(c.orderId, "RETURNED");
+        return returnCaseRepository.transition(c.id, {
+          status: "LIQUIDATED",
+          message: `${who} → RECYCLE. Routed to certified material recovery — repair cost exceeds recovery value.${tail}`,
+          data: auditData,
+          patch: { disposition: "RECYCLED" },
+        });
+      }
+
+      // ── Resale family (RESELL_AS_IS · REFURBISH · PEER_TO_PEER) ──────────
+      // Ensure the item is live in the Second Life marketplace.
+      if (c.status === "SECOND_LIFE_LISTED" && c.secondLifeListingId) {
+        if (c.secondLifeListingId) {
+          await listingRepository.updateStatus(c.secondLifeListingId, "ACTIVE");
+        }
+        return returnCaseRepository.transition(c.id, {
+          status: "SECOND_LIFE_LISTED",
+          message: `${who} → ${input.route}. Confirmed for Second Life resale; searching for nearby buyers.${tail}`,
+          data: auditData,
+        });
+      }
+
+      // Not yet listed → create the listing now (mirrors the not-feasible branch).
+      if (!c.grade) throw new ConflictError("Case must be graded before routing.");
+      const config = await configRepository.getRules();
+      const origin =
+        c.pickupLat != null && c.pickupLng != null
+          ? { lat: c.pickupLat, lng: c.pickupLng }
+          : CUSTOMER_LOCATION;
+      const nearby = await matchingService.findNearby({ category: c.item.category, origin });
+      const pricing = await pricingService.price({
+        grade: c.grade,
+        originalPrice: c.item.originalPrice,
+        category: c.item.category,
+        demandCount: nearby.length,
+      });
+      const latestGrade = await gradeRepository.findLatestForItem(c.itemId);
+      const listing = await listingService.create({
+        itemId: c.itemId,
+        grade: c.grade,
+        confidence: latestGrade?.confidence ?? c.gradeConfidence ?? 0.9,
+        flaws:
+          (latestGrade?.flaws as unknown as
+            | { type: string; severity: "minor" | "moderate" | "severe"; location: string }[]
+            | null) ?? [],
+        price: pricing.price,
+        pricePct: pricing.pricePct,
+        history: [
+          `Returned: ${c.reason}`,
+          `${who} to ${input.route} by the Circular Decision Engine`,
+        ],
+      });
+      const deadline = new Date(Date.now() + config.secondLifeWindowDays * 86_400_000);
+      return returnCaseRepository.transition(c.id, {
+        status: "SECOND_LIFE_LISTED",
+        message: `${who} → ${input.route}. Listed in the Second Life marketplace at ₹${pricing.price} for a ${config.secondLifeWindowDays}-day window.${tail}`,
+        data: { ...(auditData as object), listingId: listing.id, price: pricing.price } as unknown as Prisma.InputJsonValue,
+        patch: { secondLifeListingId: listing.id, secondLifeDeadline: deadline },
+      });
+    },
+
+    /**
+     * The customer/operator isn't satisfied with the automatic recommendation →
+     * escalate to the Operations team. Reuses the MANUAL_REVIEW state (admins
+     * accept/reject via the existing console tools). Any live listing is paused.
+     */
+    async escalateForReview(input: { caseId: string; reason?: string }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(
+        c.status,
+        ["GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED"],
+        "escalate for review",
+      );
+      if (c.secondLifeListingId) {
+        await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
+      }
+      const tail = input.reason?.trim() ? ` Reason: ${input.reason.trim()}.` : "";
+      return returnCaseRepository.transition(c.id, {
+        status: "MANUAL_REVIEW",
+        message: `Routing escalated to Operations review — the recommended route wasn't accepted.${tail} An admin will confirm the best outcome.`,
+        patch: { verificationApproved: null },
+      });
+    },
+
+    /**
      * Admin ACCEPTS a verification escalation: the item is confirmed genuine, so
      * we bypass the failing AI gate, grade the photos the customer already
      * submitted, and continue the workflow (grade → feasibility analysis).
@@ -728,8 +858,11 @@ export function createReturnWorkflowService() {
         },
       });
 
-      // Continue the normal pipeline.
-      return this.analyze({ caseId: c.id });
+      // Leave the case at GRADED — the Circular Commerce Decision Engine takes
+      // over on the customer's return page (recommend → accept / override /
+      // escalate), exactly like the normal post-grade flow. No auto-analyze
+      // cascade, so the decision panel is what the customer sees after approval.
+      return load(c.id);
     },
 
     /** Admin REJECTS a verification escalation: the return request is denied. */

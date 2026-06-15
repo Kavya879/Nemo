@@ -731,6 +731,54 @@ export interface ReturnEventDTO {
   createdAt: string;
 }
 
+// ── Circular Commerce Decision Engine ──
+export type RouteDTO = "RESELL_AS_IS" | "REFURBISH" | "PEER_TO_PEER" | "DONATE" | "RECYCLE";
+export type ConfidenceBandDTO = "High" | "Medium" | "Low";
+
+export interface DecisionFactorDTO {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+  influence: "supports" | "caution" | "neutral";
+}
+
+export interface RouteOptionDTO {
+  route: RouteDTO;
+  label: string;
+  icon: string;
+  recoveryValue: number;
+  recoveryPct: number;
+  co2SavedKg: number;
+  reLoopCredits: number;
+  recommended: boolean;
+}
+
+export interface CircularDecisionDTO {
+  caseId: string;
+  itemName: string;
+  recommendedRoute: RouteDTO;
+  recommendedLabel: string;
+  recommendedIcon: string;
+  conditionScore: number;
+  scoreBandRoute: RouteDTO;
+  nudged: boolean;
+  confidence: number;
+  confidenceBand: ConfidenceBandDTO;
+  reasoning: string;
+  factors: DecisionFactorDTO[];
+  economics: {
+    estimatedSellingPrice: number;
+    refurbishmentCost: number;
+    recoveryValue: number;
+    recoveryPct: number;
+  };
+  sustainability: { co2SavedKg: number; reLoopCredits: number };
+  options: RouteOptionDTO[];
+  escalationSuggested: boolean;
+  escalationReason: string | null;
+}
+
 export interface ReturnCaseDTO {
   id: string;
   userId: string;

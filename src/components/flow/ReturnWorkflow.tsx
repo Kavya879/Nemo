@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { useUser } from "@/lib/user-context";
 import type { EligibleOrderDTO, ItemDTO, ReturnCaseDTO } from "@/types/dto";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { GradeBadge } from "@/components/GradeBadge";
 import { LoadingState, ErrorState } from "./States";
 import { FeasibilityPanel } from "./FeasibilityPanel";
+import { CircularDecisionPanel } from "./CircularDecisionPanel";
 import { WorkflowTracker } from "./WorkflowTracker";
 import { Countdown } from "./Countdown";
 import { EventTimeline } from "./EventTimeline";
@@ -62,9 +64,59 @@ export function ReturnWorkflow() {
   const [noBuyerYet, setNoBuyerYet] = useState(false);
   const [adminRequested, setAdminRequested] = useState(false);
 
+  const { user } = useUser();
+
   useEffect(() => {
     apiClient.getOrders().then(setOrders).catch(() => undefined);
   }, []);
+
+  // Resume the user's most recent in-progress return so the page survives reloads
+  // AND account switches (e.g. hop to the admin to approve, then back) — and so it
+  // reflects whatever the admin just did. Skipped when deep-linking a fresh return.
+  useEffect(() => {
+    if (search.get("itemId")) return;
+    let cancelled = false;
+    apiClient
+      .getReturnCases(user.id)
+      .then((cases) => {
+        if (cancelled) return;
+        const active = cases.find((c) => !TERMINAL.includes(c.status));
+        if (active) {
+          setRc(active);
+          setSelected(null);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, search]);
+
+  // While a case is waiting on someone else (admin review, pickup, verification),
+  // poll so the page live-updates — e.g. the moment an admin approves, the case
+  // flips to GRADED and the Circular Decision Engine panel appears here.
+  useEffect(() => {
+    if (!rc) return;
+    const pending = [
+      "MANUAL_REVIEW",
+      "EVIDENCE_REQUESTED",
+      "BUYER_RESERVED",
+      "SL_PICKUP_SCHEDULED",
+      "DELIVERY_VERIFICATION",
+      "RETURN_PICKUP_SCHEDULED",
+      "DELIVERY_REJECTED_REVIEW",
+    ].includes(rc.status);
+    if (!pending) return;
+    const id = rc.id;
+    const t = setInterval(async () => {
+      try {
+        setRc(await apiClient.getReturnCase(id));
+      } catch {
+        /* ignore transient errors */
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [rc?.id, rc?.status]);
 
   // Deep-link from "Your Orders": ?itemId=… pre-selects that item (skip the grid).
   useEffect(() => {
@@ -99,13 +151,11 @@ export function ReturnWorkflow() {
       const graded = await apiClient.gradeCase(created.id, images);
       setRc(graded);
 
-      // The verification gate may park the case (more evidence / manual review)
-      // instead of grading — only analyze once it has actually been GRADED.
-      if (graded.status === "GRADED") {
-        setBusyLabel("Running Feasibility Analysis Engine…");
-        const analyzed = await apiClient.analyzeCase(created.id);
-        setRc(analyzed);
-      }
+      // Once graded, the Circular Commerce Decision Engine takes over: the case
+      // rests at GRADED and the decision panel auto-recommends the best route
+      // (with confidence + reasoning), which you can accept, override, or
+      // escalate. Cases parked at EVIDENCE_REQUESTED / MANUAL_REVIEW by the
+      // pre-grade verification gate are handled by their own panels instead.
     } catch (e) {
       setError(describe(e));
     } finally {
@@ -139,10 +189,7 @@ export function ReturnWorkflow() {
       const images = photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType, role: p.role }));
       const graded = await apiClient.gradeCase(rc.id, images);
       setRc(graded);
-      if (graded.status === "GRADED") {
-        setBusyLabel("Running Feasibility Analysis Engine…");
-        setRc(await apiClient.analyzeCase(rc.id));
-      }
+      // Graded → the Circular Decision Engine panel takes over (see start()).
     } catch (e) {
       setError(describe(e));
     } finally {
@@ -304,7 +351,19 @@ export function ReturnWorkflow() {
     <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Return Workflow</h1>
-        <span className="text-xs text-storm">Case {rc.id.slice(-6)}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-storm">Case {rc.id.slice(-6)}</span>
+          <button
+            onClick={() => {
+              setRc(null);
+              setSelected(null);
+              setPhotos([]);
+            }}
+            className="text-xs font-medium text-link hover:underline"
+          >
+            + New return
+          </button>
+        </div>
       </div>
       <p className="text-sm text-storm">
         {rc.item.name} · {rc.item.category} · reason: {rc.reason}
@@ -409,7 +468,13 @@ export function ReturnWorkflow() {
         </Card>
       )}
 
-      {/* Decision + feasibility */}
+      {/* Circular Commerce Decision Engine — the auto route recommendation */}
+      {rc.grade &&
+        ["GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED"].includes(rc.status) && (
+          <CircularDecisionPanel caseId={rc.id} onApplied={refreshCase} />
+        )}
+
+      {/* Decision + feasibility (supporting detail) */}
       {f && (
         <div className="mt-4">
           <FeasibilityPanel feasibility={f} decision={rc.decision} grade={rc.grade} />

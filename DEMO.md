@@ -37,6 +37,25 @@ in `RoutingConfig`, re-run the router, and the decision flips — *no redeploy*.
 
 ---
 
+## Extended walkthrough (the physical + ops layer)
+
+Switch accounts from the top-right (the **cart is separate per user**).
+
+9. **Return-in-Transit Deals** (`/`) — a good-grade (A/B) return is offered to nearby buyers
+   for a **7-day** window at a discount that **grows daily**. Click **Add to cart** → checkout.
+   *"We sell the return before it even reaches the warehouse."*
+10. **Delivery Partner board** (`/delivery`, sign in as the Delivery account) — the item you
+    just bought appears **immediately** as a **Delivery** with the real **buyer + sender
+    addresses**; tap **Mark delivered**. Returns show as **Pickups** (accept/reject after
+    inspecting against the original). An in-transit item nobody bought in 7 days becomes a
+    **Warehouse pickup** routed to the nearest real Amazon FC.
+11. **Operations Console** (`/admin`, admin account) — the live **Returns Command Center**,
+    and **Delivery Rejections**: when a partner rejects a second-hand item, an admin decides
+    **Keep in inventory** (relist) or **Remove from store** (route out). Also Challenges,
+    Listings, and live **Config Control**.
+
+---
+
 ## Fallback plan (if the network misbehaves)
 
 - **Local backup:** run the whole stack offline — `docker compose up -d` + `npm run dev`
@@ -50,10 +69,10 @@ in `RoutingConfig`, re-run the router, and the decision flips — *no redeploy*.
 ## Verification status (proof it works)
 
 - `npm run typecheck` + `npm run lint` → clean.
-- `npm run test` → **47 tests** green (unit + integration), including the **full backend
-  journey** test (return → grade → route → price → list → match → credits → prevention).
+- `npm run test` → **78 unit tests** green, plus an integration suite covering the **full
+  backend journey** (return → grade → route → price → list → match → credits → prevention).
 - `npm run build` → production build succeeds.
-- Live `/api/*` verified over HTTP; the spine runs end-to-end against the real backend.
+- Live `/api/*` (~60 routes) verified over HTTP; the spine runs end-to-end against the real backend.
 
 ---
 
