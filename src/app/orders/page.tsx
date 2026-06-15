@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
-import type { EligibleOrderDTO } from "@/types/dto";
+import type { EligibleOrderDTO, ReturnCaseDTO } from "@/types/dto";
 import { Badge } from "@/components/ui/Badge";
 import { ProductImage } from "@/components/ProductImage";
 import { LoadingState, ErrorState } from "@/components/flow/States";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<EligibleOrderDTO[] | null>(null);
+  const [returnCases, setReturnCases] = useState<ReturnCaseDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -20,8 +21,15 @@ export default function OrdersPage() {
       .getOrders()
       .then(setOrders)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load orders"));
+    // Also fetch return cases so we can link to the specific case for each item
+    apiClient.getReturnCases().then(setReturnCases).catch(() => undefined);
   }
   useEffect(load, []);
+
+  /** Find the return case for a given item (most recent non-terminal first). */
+  function caseForItem(itemId: string): ReturnCaseDTO | undefined {
+    return returnCases.find((c) => c.itemId === itemId);
+  }
 
   async function run(id: string, fn: () => Promise<unknown>, msg: string) {
     setBusyId(id);
@@ -130,15 +138,23 @@ export default function OrdersPage() {
                     </button>
                   )}
 
-                  {/* Return in progress → cancel the return (resold only) */}
+                  {/* Return in progress → view progress + cancel (resold only) */}
                   {isResold && it && s === "RETURN_REQUESTED" && (
-                    <button
-                      onClick={() => run(o.order.id, () => apiClient.cancelReturn(it.id), "Could not cancel return")}
-                      disabled={busyId === o.order.id}
-                      className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist disabled:opacity-50"
-                    >
-                      {busyId === o.order.id ? "Cancelling…" : "Cancel return request"}
-                    </button>
+                    <>
+                      <Link
+                        href={caseForItem(it.id) ? `/return?caseId=${caseForItem(it.id)!.id}` : "/return"}
+                        className="rounded-full bg-ember px-4 py-2 text-center text-sm font-medium text-white hover:bg-ember/90"
+                      >
+                        View return &amp; decision
+                      </Link>
+                      <button
+                        onClick={() => run(o.order.id, () => apiClient.cancelReturn(it.id), "Could not cancel return")}
+                        disabled={busyId === o.order.id}
+                        className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist disabled:opacity-50"
+                      >
+                        {busyId === o.order.id ? "Cancelling…" : "Cancel return request"}
+                      </button>
+                    </>
                   )}
 
                   {/* Delivered + within window → return (resold only) */}
@@ -147,7 +163,17 @@ export default function OrdersPage() {
                       href={`/return?itemId=${it.id}`}
                       className="rounded-full bg-amzYellow px-4 py-2 text-center text-sm font-medium text-ink hover:bg-amzYellowDark"
                     >
-                      Return item
+                      Return &amp; get Nemo decision
+                    </Link>
+                  )}
+
+                  {/* Returned items — view the completed decision */}
+                  {isResold && it && s === "RETURNED" && caseForItem(it.id) && (
+                    <Link
+                      href={`/return?caseId=${caseForItem(it.id)!.id}`}
+                      className="rounded-full border border-ember bg-white px-4 py-2 text-center text-sm font-medium text-ember hover:bg-ember/5"
+                    >
+                      View Nemo decision
                     </Link>
                   )}
 

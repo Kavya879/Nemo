@@ -694,7 +694,7 @@ export function createReturnWorkflowService() {
       const c = await load(input.caseId);
       assertStatus(
         c.status,
-        ["GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED"],
+        ["GRADED", "FEASIBILITY_ANALYZED", "SECOND_LIFE_LISTED", "MANUAL_REVIEW"],
         "apply route",
       );
       const who = input.overridden ? "Manually overridden" : "Auto-routed by Nemo";

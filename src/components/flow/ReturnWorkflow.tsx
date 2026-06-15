@@ -72,9 +72,10 @@ export function ReturnWorkflow() {
 
   // Resume the user's most recent in-progress return so the page survives reloads
   // AND account switches (e.g. hop to the admin to approve, then back) — and so it
-  // reflects whatever the admin just did. Skipped when deep-linking a fresh return.
+  // reflects whatever the admin just did. Skipped when deep-linking a fresh return
+  // or resuming a specific case via ?caseId=.
   useEffect(() => {
-    if (search.get("itemId")) return;
+    if (search.get("itemId") || search.get("caseId")) return;
     let cancelled = false;
     apiClient
       .getReturnCases(user.id)
@@ -91,6 +92,24 @@ export function ReturnWorkflow() {
       cancelled = true;
     };
   }, [user.id, search]);
+
+  // Deep-link to a specific return case: ?caseId=… loads that case directly.
+  useEffect(() => {
+    const caseId = search.get("caseId");
+    if (!caseId) return;
+    let cancelled = false;
+    apiClient
+      .getReturnCase(caseId)
+      .then((c) => {
+        if (cancelled) return;
+        setRc(c);
+        setSelected(null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [search]);
 
   // While a case is waiting on someone else (admin review, pickup, verification),
   // poll so the page live-updates — e.g. the moment an admin approves, the case
@@ -421,7 +440,7 @@ export function ReturnWorkflow() {
       )}
 
       {/* Verification gate: escalated to manual review */}
-      {inManualReview && (
+      {inManualReview && !rc.grade && (
         <Card className="mt-4 border-danger/40">
           <CardBody className="space-y-2">
             <div className="flex items-center gap-2">
@@ -435,6 +454,28 @@ export function ReturnWorkflow() {
             </p>
           </CardBody>
         </Card>
+      )}
+
+      {/* Routing escalation: item is already graded but user escalated the route decision */}
+      {inManualReview && rc.grade && (
+        <Card className="mt-4 border-ember/40">
+          <CardBody className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🧑‍⚖️</span>
+              <h2 className="font-bold">Route escalated to Operations</h2>
+            </div>
+            <p className="text-sm text-storm">
+              You escalated Nemo&apos;s route recommendation. The Operations team is reviewing your
+              case and will choose the best second-life path. You&apos;ll see the outcome here.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Show the Circular Decision Engine panel even in MANUAL_REVIEW if graded
+          (so the user can see what Nemo recommended before escalation) — read-only */}
+      {rc.grade && inManualReview && (
+        <CircularDecisionPanel caseId={rc.id} onApplied={refreshCase} readOnly />
       )}
 
       {/* Escalation: low product-match after repeated tries → offer admin verification.

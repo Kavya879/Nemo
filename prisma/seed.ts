@@ -885,7 +885,9 @@ const CASES: CaseSpec[] = [
   { item: "demo-item-jacket", chain: "return", status: "RETURNED_TO_SELLER", reason: "Size too large" },
   { item: "demo-item-sneakers", chain: "return", status: "RETURN_PICKUP_SCHEDULED", reason: "Size too small" },
   { item: "mkt-item-boots", chain: "return", status: "RETURNED_TO_SELLER", reason: "Uncomfortable fit" },
-  { item: "demo-item-tshirt", chain: "match", status: "BUYER_RESERVED", reason: "Size too large", buyer: { id: "demo-buyer-1", name: "Aarav", distanceKm: 1.0 } },
+  // NOTE: demo-item-tshirt is intentionally NOT in this array — it stays
+  // eligible for the deep-link demo (/return?itemId=demo-item-tshirt) so users
+  // can trigger a fresh Circular Decision Engine flow from a product page.
   { item: "mkt-item-book", chain: "match", status: "COMPLETED", reason: "Duplicate gift", buyer: { id: "demo-buyer-3", name: "Kabir", distanceKm: 3.0 } },
   { item: "mkt-item-powerbank", chain: "match", status: "DELIVERY_VERIFICATION", reason: "Slow charging", buyer: { id: "demo-buyer-2", name: "Diya", distanceKm: 2.0 } },
   { item: "demo-item-blender", chain: "liquidate", status: "LIQUIDATED", reason: "Stopped working", disposition: "RECYCLED" },
@@ -965,6 +967,15 @@ async function seedReturnCases() {
         },
       });
     }
+
+    // Set the matching order status to reflect the return (realistic data).
+    const orderId = `order-${spec.item}`;
+    const terminal = ["RETURNED_TO_SELLER", "COMPLETED", "LIQUIDATED"].includes(spec.status);
+    const orderStatus = terminal ? "RETURNED" : "RETURN_REQUESTED";
+    await prisma.order.updateMany({
+      where: { id: orderId },
+      data: { status: orderStatus },
+    });
 
     // Completed second-life sales + donations earn impact credits.
     if (spec.status === "COMPLETED" || (spec.status === "LIQUIDATED" && spec.disposition === "DONATED")) {

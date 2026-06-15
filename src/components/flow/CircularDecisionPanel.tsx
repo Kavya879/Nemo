@@ -27,9 +27,11 @@ const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 export function CircularDecisionPanel({
   caseId,
   onApplied,
+  readOnly,
 }: {
   caseId: string;
   onApplied?: () => void;
+  readOnly?: boolean;
 }) {
   const [d, setD] = useState<CircularDecisionDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -193,13 +195,16 @@ export function CircularDecisionPanel({
             {d.options.map((o) => (
               <button
                 key={o.route}
-                onClick={() => setOverride(o.route)}
+                onClick={() => !readOnly && setOverride(o.route)}
+                disabled={readOnly}
                 className={`flex items-center justify-between rounded border p-2 text-left text-sm transition-colors ${
                   o.recommended
                     ? "border-ember bg-ember/5"
                     : override === o.route
                       ? "border-link bg-link/5"
-                      : "border-line bg-white hover:bg-mist/40"
+                      : readOnly
+                        ? "border-line bg-white"
+                        : "border-line bg-white hover:bg-mist/40"
                 }`}
               >
                 <span className="font-medium text-ink">
@@ -217,57 +222,67 @@ export function CircularDecisionPanel({
         {error && <ErrorState message={error} />}
 
         {/* Escalation suggestion */}
-        {d.escalationSuggested && d.escalationReason && (
+        {!readOnly && d.escalationSuggested && d.escalationReason && (
           <div className="rounded border border-warn/40 bg-warn/5 p-2 text-xs text-storm">
             🤔 {d.escalationReason} You can accept anyway, override, or escalate to Operations.
           </div>
         )}
 
-        {/* Actions */}
-        {(override && override !== d.recommendedRoute) || escalateOpen ? (
-          <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={
-              escalateOpen ? "Why escalate? (optional)" : "Why override the recommendation? (optional)"
-            }
-            className="w-full rounded border border-line px-3 py-2 text-sm"
-          />
-        ) : null}
+        {readOnly && (
+          <div className="rounded border border-link/40 bg-link/5 p-2 text-xs text-storm">
+            ⏳ This recommendation is being reviewed by the Operations team. You&apos;ll see the final route here once they decide.
+          </div>
+        )}
 
-        <div className="flex flex-wrap gap-2">
-          {override && override !== d.recommendedRoute ? (
-            <>
-              <Button disabled={busy} onClick={() => override && apply(override, true)}>
-                Override → {override.replace(/_/g, " ").toLowerCase()}
-              </Button>
-              <Button variant="secondary" disabled={busy} onClick={() => setOverride("")}>
-                Cancel
-              </Button>
-            </>
-          ) : escalateOpen ? (
-            <>
-              <Button variant="danger" disabled={busy} onClick={escalate}>
-                Confirm escalation
-              </Button>
-              <Button variant="secondary" disabled={busy} onClick={() => setEscalateOpen(false)}>
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button disabled={busy} onClick={() => apply(d.recommendedRoute, false)}>
-                ✅ Accept &amp; route ({d.recommendedLabel})
-              </Button>
-              <Button variant="secondary" disabled={busy} onClick={() => setEscalateOpen(true)}>
-                🧑‍⚖️ Escalate to admin
-              </Button>
-            </>
-          )}
-        </div>
-        <p className="text-[11px] text-storm">
-          Tip: pick any route above to override Nemo&apos;s recommendation before applying.
-        </p>
+        {/* Actions */}
+        {!readOnly && (
+          <>
+            {(override && override !== d.recommendedRoute) || escalateOpen ? (
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={
+                  escalateOpen ? "Why escalate? (optional)" : "Why override the recommendation? (optional)"
+                }
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            ) : null}
+
+            <div className="flex flex-wrap gap-2">
+              {override && override !== d.recommendedRoute ? (
+                <>
+                  <Button disabled={busy} onClick={() => override && apply(override, true)}>
+                    Override → {override.replace(/_/g, " ").toLowerCase()}
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onClick={() => setOverride("")}>
+                    Cancel
+                  </Button>
+                </>
+              ) : escalateOpen ? (
+                <>
+                  <Button variant="danger" disabled={busy} onClick={escalate}>
+                    Confirm escalation
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onClick={() => setEscalateOpen(false)}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button disabled={busy} onClick={() => apply(d.recommendedRoute, false)}>
+                    ✅ Accept &amp; route ({d.recommendedLabel})
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onClick={() => setEscalateOpen(true)}>
+                    🧑‍⚖️ Escalate to admin
+                  </Button>
+                </>
+              )}
+            </div>
+            <p className="text-[11px] text-storm">
+              Tip: pick any route above to override Nemo&apos;s recommendation before applying.
+            </p>
+          </>
+        )}
       </CardBody>
     </Card>
   );
