@@ -1,0 +1,15 @@
+# Railway / Nixpacks build configuration.
+# Force `npm install` (not `npm ci`) so the build resolves platform-correct
+# native dependencies on Linux instead of failing on a Windows-generated lock.
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"

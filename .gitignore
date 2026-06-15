@@ -3,6 +3,11 @@
 /.pnp
 .pnp.js
 
+# lock file — excluded so deploy platforms use `npm install` (cross-platform
+# tolerant) instead of `npm ci`, which fails when the Windows-generated lock
+# is missing Linux-only optional native deps (@emnapi, @img/sharp-linux-*).
+package-lock.json
+
 # testing
 /coverage
 
