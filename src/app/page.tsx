@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import type { ListingDTO, ProductDTO, ReturnDealDTO } from "@/types/dto";
 import { ProductImage } from "@/components/ProductImage";
@@ -10,19 +11,36 @@ import { ListingCard } from "@/components/ListingCard";
 import { TransitDealCard } from "@/components/TransitDealCard";
 import { useCategories } from "@/lib/use-categories";
 import { categoryIcon } from "@/lib/category-icon";
+import { hasStartedSession } from "@/lib/session";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
   const [listings, setListings] = useState<ListingDTO[]>([]);
   const [products, setProducts] = useState<ProductDTO[]>([]);
   const [transitDeals, setTransitDeals] = useState<ReturnDealDTO[]>([]);
   const { categories } = useCategories();
+
+  // The login screen is the default landing route — if the user hasn't picked
+  // an account yet, send them there first.
   useEffect(() => {
+    if (!hasStartedSession()) {
+      router.replace("/login");
+    } else {
+      setReady(true);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!ready) return;
     apiClient.getListings().then(setListings).catch(() => setListings([]));
     apiClient.getProducts().then(setProducts).catch(() => setProducts([]));
     apiClient.getReturnDeals().then(setTransitDeals).catch(() => setTransitDeals([]));
-  }, []);
+  }, [ready]);
 
   const deals = listings.slice(0, 4);
+
+  if (!ready) return null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5">

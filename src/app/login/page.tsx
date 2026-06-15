@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/user-context";
-import { PRESET_USERS, slugUserId, type SessionUser } from "@/lib/session";
+import { PRESET_USERS, slugUserId, markSessionStarted, type SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Logo } from "@/components/Logo";
@@ -15,6 +15,7 @@ export default function LoginPage() {
 
   function pick(u: SessionUser) {
     signIn(u);
+    markSessionStarted();
     router.push("/");
   }
 
@@ -22,6 +23,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!name.trim()) return;
     signIn({ id: slugUserId(name), name: name.trim(), role: "buyer" });
+    markSessionStarted();
     router.push("/");
   }
 

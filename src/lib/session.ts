@@ -15,6 +15,7 @@ export interface SessionUser {
 }
 
 const KEY = "nemo-user-v1";
+const SESSION_FLAG = "nemo-session-started-v1";
 
 /** The seeded demo data (orders, the starter listing) belongs to this account. */
 export const DEFAULT_USER: SessionUser = {
@@ -72,4 +73,23 @@ export function slugUserId(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `user-${slug || "guest"}`;
+}
+
+/** True once the user has explicitly picked an account on the login screen. */
+export function hasStartedSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(SESSION_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Mark that the user has signed in (so the root no longer redirects to /login). */
+export function markSessionStarted(): void {
+  try {
+    localStorage.setItem(SESSION_FLAG, "1");
+  } catch {
+    /* ignore */
+  }
 }

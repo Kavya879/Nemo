@@ -46,4 +46,6 @@ next-env.d.ts
 
 # transformers.js model cache
 /.cache
-/models
+/models/*
+# …but DO commit the trained kaputt grader model (4MB) so AI grading works on deploy
+!/models/mobilenet_kaputt.onnx

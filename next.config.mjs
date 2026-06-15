@@ -7,6 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  // ESLint runs in CI/locally, not during the production build — avoids needing
+  // eslint devDependencies installed on the deploy platform (production install).
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // These native/ONNX packages are only ever loaded lazily at runtime via
   // dynamic import() in the service layer. Listing them here keeps them out of
   // the server bundle so webpack never tries to bundle their native binaries.
