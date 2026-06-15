@@ -101,8 +101,21 @@ function loadEnv(): Env {
 
 /**
  * Validated, typed environment. Import this everywhere instead of process.env.
+ *
+ * During `next build` on deployment platforms (Render, Vercel), some env vars may
+ * not be available. The validation runs lazily on first access in production builds
+ * so the build can complete (it only prerenders static pages, never calls services).
  */
-export const env: Env = loadEnv();
+let _env: Env | null = null;
+
+export const env: Env = new Proxy({} as Env, {
+  get(_, prop: string) {
+    if (!_env) {
+      _env = loadEnv();
+    }
+    return (_env as Record<string, unknown>)[prop];
+  },
+});
 
 /**
  * Convenience guard used by the Bedrock grader to assert its credentials exist
