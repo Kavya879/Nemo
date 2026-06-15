@@ -76,6 +76,7 @@ function toRow(c: ReturnCaseWithRelations) {
     reservedDistanceKm: c.reservedDistanceKm,
     expectedResaleValue: feas?.expectedResaleValue ?? null,
     netRecoveryValue: feas?.netRecoveryValue ?? null,
+    rejectionReason: c.rejectionReason,
     createdAt: c.createdAt.toISOString(),
   };
 }

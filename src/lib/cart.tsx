@@ -8,11 +8,17 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useUser } from "@/lib/user-context";
 
 /**
  * Production-style cart: line items with quantity, persisted to localStorage so
  * it survives reloads. The single source of truth for everything cart-related
  * (Navbar badge, /cart page, /checkout).
+ *
+ * The cart is scoped to the signed-in user: each account has its own cart
+ * (storage key `nemo-cart-v2::<userId>`), so switching accounts loads that
+ * account's cart and one user can never see or mutate another's. This mirrors
+ * the per-user scoping already used for orders/credits/returns via session.ts.
  *
  * Lines belong to one of two ecosystems:
  *  • RESOLD — a one-of-a-kind second-life listing; maxQty is always 1.
@@ -56,36 +62,65 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = "nemo-cart-v2";
+const STORAGE_PREFIX = "nemo-cart-v2";
+
+/** Per-user storage key, so each account keeps its own separate cart. */
+function storageKeyFor(userId: string): string {
+  return `${STORAGE_PREFIX}::${userId}`;
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const { user } = useUser();
+  const storageKey = storageKeyFor(user.id);
 
-  // Load once on mount (client only).
+  // `key` records which storage key the current `lines` were loaded/saved under.
+  // Tracking it inside state (not a ref) lets the persist effect skip the render
+  // immediately after a user switch — when `lines` still holds the previous
+  // account's cart — so we never clobber the new account's stored cart.
+  const [state, setState] = useState<{ key: string; lines: CartLine[] }>({
+    key: "",
+    lines: [],
+  });
+  const lines = state.lines;
+
+  const setLines = useCallback(
+    (updater: CartLine[] | ((prev: CartLine[]) => CartLine[])) => {
+      setState((prev) => ({
+        key: prev.key,
+        lines: typeof updater === "function" ? updater(prev.lines) : updater,
+      }));
+    },
+    [],
+  );
+
+  // Load whenever the active user (and thus the storage key) changes.
   useEffect(() => {
+    let loaded: CartLine[] = [];
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as CartLine[];
         // Defensive: only keep well-formed lines (guards against an older shape).
-        setLines(parsed.filter((l) => l && typeof l.key === "string" && typeof l.qty === "number"));
+        loaded = parsed.filter(
+          (l) => l && typeof l.key === "string" && typeof l.qty === "number",
+        );
       }
     } catch {
       /* ignore corrupt storage */
     }
-    setHydrated(true);
-  }, []);
+    setState({ key: storageKey, lines: loaded });
+  }, [storageKey]);
 
-  // Persist on change (after hydration, so we don't clobber stored data).
+  // Persist on change — but only once `lines` belong to the active key, so a
+  // user switch can't write the previous account's lines into the new key.
   useEffect(() => {
-    if (!hydrated) return;
+    if (state.key !== storageKey) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+      localStorage.setItem(storageKey, JSON.stringify(state.lines));
     } catch {
       /* ignore quota errors */
     }
-  }, [lines, hydrated]);
+  }, [state, storageKey]);
 
   const add = useCallback((line: Omit<CartLine, "qty">, qty = 1) => {
     const cap = Math.max(line.maxQty, 0);

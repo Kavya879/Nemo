@@ -130,15 +130,22 @@ export interface NotificationDTO {
 
 /** A task on a delivery partner's daily route (derived from active return cases). */
 export interface DeliveryTaskDTO {
+  /** Return-case id for pickups; order id for buyer deliveries. */
   caseId: string;
+  /** Set for buyer deliveries (order-backed); null for return-case tasks. */
+  orderId: string | null;
   itemName: string;
   category: string;
   brand: string | null;
   originalImageUrl: string | null;
   returnPhotos: { data: string; mimeType: string; role: string }[];
   reason: string;
-  /** RETURN_PICKUP = collect from customer → seller; VERIFY_EXCHANGE = collect + verify → buyer. */
-  kind: "RETURN_PICKUP" | "VERIFY_EXCHANGE" | "DROP";
+  /**
+   * RETURN_PICKUP = collect from customer → seller/FC; VERIFY_EXCHANGE = collect
+   * + verify → buyer; WAREHOUSE_PICKUP = expired in-transit item → warehouse;
+   * BUYER_DELIVERY = hand a sold second-hand item to its buyer.
+   */
+  kind: "RETURN_PICKUP" | "VERIFY_EXCHANGE" | "WAREHOUSE_PICKUP" | "BUYER_DELIVERY" | "DROP";
   status: string;
   fromLabel: string;
   toLabel: string;
@@ -152,8 +159,9 @@ export interface DeliveryTaskDTO {
 
 export interface DeliveryBoardDTO {
   pickups: DeliveryTaskDTO[];
+  deliveries: DeliveryTaskDTO[];
   completed: DeliveryTaskDTO[];
-  stats: { pickups: number; completed: number };
+  stats: { pickups: number; deliveries: number; completed: number };
 }
 
 // ── TrustPass seller reputation ──
@@ -573,6 +581,7 @@ export interface AdminCaseRowDTO {
   reservedDistanceKm: number | null;
   expectedResaleValue: number | null;
   netRecoveryValue: number | null;
+  rejectionReason: string | null;
   createdAt: string;
 }
 

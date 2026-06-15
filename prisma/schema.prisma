@@ -85,6 +85,9 @@ enum ReturnStatus {
   REFUND_INITIATED
   COMPLETED
   TRANSFER_REJECTED
+  // A delivery partner rejected a second-hand item at pickup/verification — held
+  // for an admin to KEEP it in the store (relist) or REMOVE it completely.
+  DELIVERY_REJECTED_REVIEW
   // No buyer within window
   WINDOW_EXPIRED
   LIQUIDATION_PICKUP

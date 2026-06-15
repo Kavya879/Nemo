@@ -1,4 +1,4 @@
-import type { ReturnStatus } from "@prisma/client";
+import type { Grade, ReturnStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { configRepository } from "@/repositories/config.repository";
 import { ConflictError } from "@/lib/errors";
@@ -19,7 +19,7 @@ import { ConflictError } from "@/lib/errors";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Pipeline states in which an item is still in transit and sellable early. */
-const TRANSIT_SELLABLE_STATES: ReturnStatus[] = [
+export const TRANSIT_SELLABLE_STATES: ReturnStatus[] = [
   "INITIATED",
   "VERIFYING",
   "EVIDENCE_REQUESTED",
@@ -29,6 +29,18 @@ const TRANSIT_SELLABLE_STATES: ReturnStatus[] = [
   "RETURN_APPROVED",
   "RETURN_PICKUP_SCHEDULED",
 ];
+
+/**
+ * Only GOOD-quality returns are offered for early in-transit resale — a buyer
+ * paying a discount for an in-flight item should be getting something genuinely
+ * resellable, not a C/D-grade unit headed for refurbishment or recycling.
+ */
+export const GOOD_TRANSIT_GRADES: Grade[] = ["A", "B"];
+
+/** True if a returned item is good enough to offer as an in-transit deal. */
+export function isGoodTransitGrade(grade: Grade | null): grade is Grade {
+  return grade != null && GOOD_TRANSIT_GRADES.includes(grade);
+}
 
 export type TransitBadge = "In Return Pipeline" | "Arriving Soon" | "Smart Deal";
 
@@ -83,12 +95,18 @@ export const returnDealsService = {
     const config = await configRepository.getRules();
     const tiers = parseTiers(config.returnTransitDiscountTiers);
     const arrivalDays = config.returnTransitArrivalDays;
+    // The in-transit listing window: a returned item is offered for early resale
+    // for this many days (default 7). After it elapses unsold, the item drops off
+    // the in-transit section and is collected for the warehouse instead.
+    const windowDays = config.returnTransitArrivalDays;
 
     const [cases, activeListings] = await Promise.all([
       prisma.returnCase.findMany({
         where: {
           status: { in: TRANSIT_SELLABLE_STATES },
           transitSold: false,
+          // Only good-quality (A/B) returns are offered as in-transit deals.
+          grade: { in: GOOD_TRANSIT_GRADES },
         },
         include: { item: true },
         orderBy: { createdAt: "asc" }, // longest-waiting first (biggest discount)
@@ -108,6 +126,9 @@ export const returnDealsService = {
       seenItems.add(c.itemId);
 
       const daysInPipeline = Math.max(0, Math.floor((now - new Date(c.createdAt).getTime()) / DAY_MS));
+      // 7-day in-transit window: once it elapses, the item is no longer offered
+      // for early sale (it's picked up for the warehouse instead — see delivery board).
+      if (daysInPipeline >= windowDays) continue;
       const discountPct = discountForDays(daysInPipeline, tiers);
       const discountedPrice = Math.round(c.item.originalPrice * (1 - discountPct));
       const arrivalMs = new Date(c.createdAt).getTime() + arrivalDays * DAY_MS;
@@ -176,5 +197,33 @@ export const returnDealsService = {
       });
     }
     return true;
+  },
+
+  /**
+   * The 7-day in-transit window elapsed with no buyer → the delivery partner
+   * collects the item and routes it to the nearest Amazon warehouse for normal
+   * intake. Marks the item ROUTED and closes the case as returned-to-seller.
+   */
+  async collectExpiredToWarehouse(returnCaseId: string): Promise<void> {
+    const c = await prisma.returnCase.findUnique({ where: { id: returnCaseId } });
+    if (!c) throw new ConflictError("This in-transit case no longer exists.");
+    if (c.transitSold) {
+      throw new ConflictError("This item was sold in transit — there's nothing to collect.");
+    }
+    await prisma.$transaction([
+      prisma.returnCase.update({ where: { id: c.id }, data: { status: "RETURNED_TO_SELLER" } }),
+      prisma.item.update({ where: { id: c.itemId }, data: { status: "ROUTED" } }),
+      prisma.returnEvent.create({
+        data: {
+          returnCaseId: c.id,
+          status: "RETURNED_TO_SELLER",
+          message:
+            "In-transit window expired with no buyer. Delivery partner collected the item and routed it to the nearest Amazon warehouse for intake.",
+        },
+      }),
+    ]);
+    if (c.orderId) {
+      await prisma.order.update({ where: { id: c.orderId }, data: { status: "RETURNED" } }).catch(() => undefined);
+    }
   },
 };

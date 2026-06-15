@@ -43,6 +43,43 @@ export const orderRepository = {
     return prisma.order.findUnique({ where: { id } });
   },
 
+  /**
+   * Open second-hand (item-backed) orders awaiting physical delivery to the
+   * buyer — PLACED or SHIPPED, not yet delivered. These drive the delivery
+   * partner's "deliver to buyer" tasks (a sold second-hand item shows up
+   * immediately). Newest first.
+   */
+  async listOpenItemDeliveries(): Promise<OrderWithItem[]> {
+    const orders = await prisma.order.findMany({
+      where: { itemId: { not: null }, status: { in: ["PLACED", "SHIPPED"] } },
+      include: { item: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return orders.filter((o) => o.item !== null) as OrderWithItem[];
+  },
+
+  /** Recently-delivered second-hand orders (for the delivery board's "completed"). */
+  async listRecentItemDeliveries(sinceMs: number): Promise<OrderWithItem[]> {
+    const orders = await prisma.order.findMany({
+      where: {
+        itemId: { not: null },
+        status: "DELIVERED",
+        deliveredAt: { gte: new Date(sinceMs) },
+      },
+      include: { item: true },
+      orderBy: { deliveredAt: "desc" },
+    });
+    return orders.filter((o) => o.item !== null) as OrderWithItem[];
+  },
+
+  /** Delivery partner marks an order delivered — stamps the delivery time too. */
+  async markDelivered(id: string): Promise<Order> {
+    return prisma.order.update({
+      where: { id },
+      data: { status: "DELIVERED", deliveredAt: new Date() },
+    });
+  },
+
   async findByItem(itemId: string, userId: string): Promise<OrderWithItem | null> {
     return prisma.order.findFirst({
       where: { itemId, userId },

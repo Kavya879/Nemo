@@ -13,7 +13,7 @@ import { DecisionExplorer } from "./DecisionExplorer";
 function statusTone(s: string): "success" | "info" | "warn" | "danger" | "neutral" {
   if (["COMPLETED", "RETURNED_TO_SELLER", "TRANSFER_APPROVED"].includes(s)) return "success";
   if (["TRANSFER_REJECTED", "DISCARDED"].includes(s)) return "danger";
-  if (["DONATION_PENDING", "WINDOW_EXPIRED"].includes(s)) return "warn";
+  if (["DONATION_PENDING", "WINDOW_EXPIRED", "DELIVERY_REJECTED_REVIEW"].includes(s)) return "warn";
   if (["INITIATED", "GRADED", "FEASIBILITY_ANALYZED"].includes(s)) return "neutral";
   return "info";
 }

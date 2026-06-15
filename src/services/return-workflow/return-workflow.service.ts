@@ -346,18 +346,18 @@ export function createReturnWorkflowService() {
 
     /**
      * Feasible path: delivery partner inspects the item at pickup and REJECTS it
-     * (doesn't match the original / damaged differently / fraud). The return is
-     * cancelled and the item stays with the customer.
+     * (doesn't match the original / damaged differently / fraud). Because this is
+     * a second-hand item, the rejection is escalated to an admin who decides
+     * whether to KEEP it in the store inventory or REMOVE it completely — see
+     * `resolveDeliveryRejection`. The case parks in DELIVERY_REJECTED_REVIEW.
      */
     async rejectReturnPickup(input: { caseId: string; reason: string }): Promise<ReturnCaseWithRelations> {
       const c = await load(input.caseId);
       assertStatus(c.status, ["RETURN_PICKUP_SCHEDULED"], "reject pickup");
       const reason = input.reason.trim() || "Item did not match the original product at pickup.";
-      // The customer keeps the item; the order goes back to delivered (no refund).
-      if (c.orderId) await orderRepository.updateStatus(c.orderId, "DELIVERED");
       return returnCaseRepository.transition(c.id, {
-        status: "TRANSFER_REJECTED",
-        message: `Pickup REJECTED by the delivery partner: ${reason}. Return cancelled — item stays with the customer.`,
+        status: "DELIVERY_REJECTED_REVIEW",
+        message: `Pickup REJECTED by the delivery partner: ${reason}. Escalated for manual review — an admin will decide whether to keep the item in inventory or remove it from the store.`,
         patch: { verificationApproved: false, rejectionReason: reason },
       });
     },
@@ -434,12 +434,12 @@ export function createReturnWorkflowService() {
 
       if (!input.approved) {
         const reason = input.notes?.trim() || "Condition did not match the AI grade.";
-        if (c.secondLifeListingId) {
-          await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
-        }
+        // Second-hand item rejected at verification → escalate to an admin who
+        // decides keep-vs-remove. Leave the listing as-is for now; the admin's
+        // decision (`resolveDeliveryRejection`) relists or pulls it.
         return returnCaseRepository.transition(c.id, {
-          status: "TRANSFER_REJECTED",
-          message: `Delivery partner REJECTED the transfer: ${reason}. Transaction cancelled; return request rejected.`,
+          status: "DELIVERY_REJECTED_REVIEW",
+          message: `Delivery partner REJECTED the transfer: ${reason}. Escalated for manual review — an admin will decide whether to keep the item in inventory or remove it from the store.`,
           patch: {
             verificationApproved: false,
             verificationNotes: input.notes ?? null,
@@ -599,6 +599,82 @@ export function createReturnWorkflowService() {
         message: `Donated through Amazon to a partner charity. +${credits.credits} Amazon Nemo Credits, ${credits.co2SavedKg}kg CO₂ avoided.`,
         data: { disposition: "DONATED", credits } as unknown as Prisma.InputJsonValue,
         patch: { disposition: "DONATED" },
+      });
+    },
+
+    /**
+     * Admin resolves a delivery-partner rejection of a second-hand item: either
+     * KEEP it in the store (relist it for resale — reactivating the existing
+     * second-life listing, or creating one if the rejection happened before any
+     * listing existed) or REMOVE it from the store completely (deactivate the
+     * listing and route the item out of inventory so it can't be sold again).
+     */
+    async resolveDeliveryRejection(input: {
+      caseId: string;
+      action: "KEEP" | "REMOVE";
+      reviewer: string;
+      reason?: string;
+    }): Promise<ReturnCaseWithRelations> {
+      const c = await load(input.caseId);
+      assertStatus(c.status, ["DELIVERY_REJECTED_REVIEW"], "resolve delivery rejection");
+      const note = input.reason?.trim();
+      const suffix = note ? ` ${note}` : "";
+
+      if (input.action === "REMOVE") {
+        // Pull it from the store for good: deactivate any listing + route the
+        // item out of inventory.
+        if (c.secondLifeListingId) {
+          await listingRepository.updateStatus(c.secondLifeListingId, "INACTIVE");
+        }
+        await itemRepository.updateStatus(c.itemId, "ROUTED");
+        if (c.orderId) await orderRepository.updateStatus(c.orderId, "RETURNED");
+        return returnCaseRepository.transition(c.id, {
+          status: "TRANSFER_REJECTED",
+          message: `Admin (${input.reviewer}) REMOVED the item from the store completely after the delivery rejection — listing deactivated and item routed out of inventory.${suffix}`,
+          patch: { disposition: "LIQUIDATED", verificationNotes: note ?? c.verificationNotes ?? null },
+        });
+      }
+
+      // KEEP → ensure the item is back in the store as an ACTIVE marketplace listing.
+      let listingId = c.secondLifeListingId;
+      if (listingId) {
+        await listingRepository.updateStatus(listingId, "ACTIVE");
+      } else {
+        // No second-life listing yet (e.g. a return-pickup rejection) — create one
+        // so the item actually re-enters the store, priced by the real engine.
+        const grade = c.grade ?? "C";
+        const latestGrade = await gradeRepository.findLatestForItem(c.itemId);
+        const pricing = await pricingService.price({
+          grade,
+          originalPrice: c.item.originalPrice,
+          category: c.item.category,
+          demandCount: 0,
+        });
+        const listing = await listingService.create({
+          itemId: c.itemId,
+          grade,
+          confidence: latestGrade?.confidence ?? c.gradeConfidence ?? 0.9,
+          flaws:
+            (latestGrade?.flaws as unknown as
+              | { type: string; severity: "minor" | "moderate" | "severe"; location: string }[]
+              | null) ?? [],
+          price: pricing.price,
+          pricePct: pricing.pricePct,
+          history: [
+            `Return rejected at pickup: ${c.rejectionReason ?? c.reason}`,
+            "Kept in store by Operations review — relisted for resale",
+          ],
+        });
+        listingId = listing.id;
+      }
+      await itemRepository.updateStatus(c.itemId, "LISTED");
+
+      const config = await configRepository.getRules();
+      const deadline = new Date(Date.now() + config.secondLifeWindowDays * 86_400_000);
+      return returnCaseRepository.transition(c.id, {
+        status: "SECOND_LIFE_LISTED",
+        message: `Admin (${input.reviewer}) KEPT the item in the store inventory after the delivery rejection — relisted for resale in the Second Life marketplace.${suffix}`,
+        patch: { secondLifeListingId: listingId, secondLifeDeadline: deadline },
       });
     },
 

@@ -10,11 +10,12 @@ import { CommandCenter } from "@/components/admin/CommandCenter";
 import { ConfigControl } from "@/components/admin/ConfigControl";
 import { ListingReview } from "@/components/admin/ListingReview";
 import { ChallengeReview } from "@/components/admin/ChallengeReview";
+import { DeliveryRejections } from "@/components/admin/DeliveryRejections";
 
 // The Operations Console is intentionally focused on operational management and
 // review workflows only. Dashboards/analytics/experimental widgets are not part
 // of the admin home.
-const TABS = ["Command Center", "Challenges", "Listings", "Config Control"] as const;
+const TABS = ["Command Center", "Rejections", "Challenges", "Listings", "Config Control"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function AdminPage() {
@@ -63,6 +64,7 @@ export default function AdminPage() {
       </div>
 
       {tab === "Command Center" && <CommandCenter />}
+      {tab === "Rejections" && <DeliveryRejections />}
       {tab === "Challenges" && <ChallengeReview />}
       {tab === "Listings" && <ListingReview />}
       {tab === "Config Control" && <ConfigControl />}

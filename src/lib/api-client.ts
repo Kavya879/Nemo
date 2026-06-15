@@ -334,6 +334,12 @@ export const apiClient = {
 
   // ── Admin console ──
   adminCases: () => request<AdminCaseRowDTO[]>("/api/admin/return-cases"),
+  /** Resolve a delivery-partner rejection of a second-hand item: keep or remove. */
+  adminResolveRejection: (id: string, action: "KEEP" | "REMOVE", reason?: string) =>
+    request<ReturnCaseDTO>(`/api/admin/return-cases/${id}/resolve-rejection`, {
+      method: "POST",
+      body: JSON.stringify({ action, reason, reviewer: getCurrentUser().name }),
+    }),
   adminCaseDetail: (id: string) =>
     request<AdminCaseDetailDTO>(`/api/admin/return-cases/${id}`),
   adminMap: (coords?: { lat: number; lng: number }) =>
@@ -444,6 +450,18 @@ export const apiClient = {
 
   // ── Delivery partner board ──
   getDeliveryTasks: () => request<DeliveryBoardDTO>("/api/delivery/tasks"),
+  /** Mark a sold second-hand order as delivered to the buyer. */
+  markDelivered: (orderId: string) =>
+    request<{ id: string }>("/api/delivery/deliver", {
+      method: "POST",
+      body: JSON.stringify({ orderId }),
+    }),
+  /** Collect an expired in-transit item and route it to the Amazon warehouse. */
+  warehousePickup: (caseId: string) =>
+    request<{ caseId: string; collected: boolean }>("/api/delivery/warehouse-pickup", {
+      method: "POST",
+      body: JSON.stringify({ caseId }),
+    }),
 
   // ── TrustPass seller reputation ──
   getTrustScore: (userId: string = currentUserId()) =>
