@@ -4,6 +4,11 @@ import { AppShell } from "@/components/AppShell";
 import { CartProvider } from "@/lib/cart";
 import { UserProvider } from "@/lib/user-context";
 
+// Force all pages to render at request time (never statically prerendered during
+// build). This avoids "useContext on null" errors on Render/Vercel where the
+// React context tree isn't available during the build-time prerender pass.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Amazon Nemo — The intelligent bridge for returns",
   description:

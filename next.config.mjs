@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Force all pages to be server-rendered at request time (never statically
+  // prerendered during build). This prevents "useContext on null" errors on
+  // deployment platforms where the React context tree isn't available at build.
+  output: "standalone",
   // sharp + transformers.js + onnxruntime ship native/ONNX bits that must stay
   // external (never bundled by webpack). Both the stable and experimental keys
   // are set for maximum compatibility across Next.js 14.x minor versions.
