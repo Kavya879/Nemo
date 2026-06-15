@@ -1,3 +1,8 @@
+import { resolve } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -10,14 +15,17 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Mark native packages as external so webpack never tries to bundle them.
-      // They're resolved at runtime from node_modules instead.
-      config.externals = [
-        ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
-        "onnxruntime-node",
-        "sharp",
-        "@xenova/transformers",
-      ];
+      // Replace native/ONNX packages with an empty stub so they never get bundled
+      // into server chunks during build. They're loaded lazily at runtime via
+      // dynamic import() in the service layer (kaputt-grader, clip-pipeline, etc).
+      const emptyModule = resolve(__dirname, "empty-module.js");
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "onnxruntime-node": emptyModule,
+        // @xenova/transformers is also lazy-imported — safe to stub at build time
+        "@xenova/transformers": emptyModule,
+      };
     }
     return config;
   },
