@@ -33,8 +33,12 @@ The brain. For every graded return it fuses **10 signals** — AI condition scor
 
 Five routes: **Resell As-Is · Refurbish & Resell · Peer-to-Peer · Donate · Recycle.** Users can accept, **override**, or **escalate to a human** — and a "Why did Nemo choose this?" breakdown shows every factor behind the call.
 
+![Landing Page](<./images/Screenshot 2026-06-15 083409.png>)
+
 ### 📸 AI Grading + Verification Gate
 Snap a photo → a condition grade (A–D) + defect detection in **under 2 seconds**, using a MobileNetV3 model fine-tuned on a product-damage dataset (ONNX), with graceful fallbacks. A pre-grade gate first verifies the item matches what was purchased and screens for fraud — so nobody returns a brick in a shoebox.
+
+![Grading](./images/grade.png)
 
 ### 🚚 Return-in-Transit Deals
 Good-grade returns are offered to nearby buyers **while still in the return pipeline** — before warehouse intake. The discount **grows in tiers the longer it waits** (0% → 5% → 10%), recalculated live on every page load. Zero storage cost; it usually sells before it ever reaches a shelf.
@@ -48,9 +52,12 @@ Every relisted item carries a verified card: AI-confirmed condition, flaw map, o
 ### 🌱 Green Credits & Impact
 Every second-life action earns ReLoop Credits, quantifies CO₂ avoided and cost saved, and is redeemable for rewards — turning sustainability into a loyalty program.
 
+![credits](./images/im.png)
+
 ### 🛠️ Operations Console (admin)
 A live Returns Command Center, delivery-rejection review (keep vs remove from store), AI-verdict challenge adjudication, listing approval, and **live Config Control** — tune fraud thresholds, price bands, radii, and CO₂ factors and watch routing change in real time, no redeploy.
 
+![Ops admin](<./images/Screenshot 2026-06-15 083454.png>)
 ---
 
 ## 🏗️ Architecture
